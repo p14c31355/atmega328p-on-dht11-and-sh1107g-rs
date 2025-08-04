@@ -274,7 +274,7 @@ dependencies = [
 [[package]]
 name = "sh1107g-rs"
 version = "0.1.0"
-source = "git+https://github.com/p14c31355/sh1107g-rs.git?branch=hotfix%2Finit#c32a3480efb45be7a891cd8942132ce0c312c76b"
+source = "git+https://github.com/p14c31355/sh1107g-rs.git?branch=hotfix%2Finit#7f010ef7bd4352ad5bc01af0a9ee47bb859e3d66"
 dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",

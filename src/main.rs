@@ -36,11 +36,10 @@ fn main() -> ! {
         .draw(&mut display)
         .unwrap();
 
-    display.flush().unwrap();
-
-    arduino_hal::delay_ms(500); // 0.5秒だけ待つ
-
     loop {
+        // flush() を繰り返し呼び出すことで、描画内容を画面に維持する
+        display.flush().unwrap();
+        
         // 永久ループで終了させない
     }
 }

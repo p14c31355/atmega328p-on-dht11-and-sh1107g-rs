@@ -37,18 +37,16 @@ fn main() -> ! {
     let mut display = match Sh1107gBuilder::new()
         .connect_i2c(i2c)
         .with_address(0x3C)
-        .build()
+        .build(&mut serial)
     {
         Ok(d) => {
             uwriteln!(&mut serial, "Display build OK").ok();
             d
         }
         Err(e) => {
-            uwriteln!(&mut serial, "Display build FAILED!").ok();
-            // Optionally show the error (if it implements `core::fmt::Debug`)
-            // uwriteln!(&mut serial, "{:?}", e).ok();
+            uwriteln!(&mut serial, "DRIVER INIT ERROR: {:?}", e).unwrap();
             loop {}
-        }
+    }
     };
 
     if let Err(_) = display.init() {

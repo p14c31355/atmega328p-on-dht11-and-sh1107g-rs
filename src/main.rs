@@ -40,7 +40,14 @@ fn main() -> ! {
     {
         Ok(d) => d,
         Err(e) => {
-            let _ = uwriteln!(&mut serial, "DRIVER INIT ERROR: {:?}", e);
+                        // uwriteln!が返すResultを明示的に処理
+            match uwriteln!(&mut serial, "DRIVER INIT ERROR: {:?}", e) {
+                Ok(_) => {}, // 成功時は何もしない
+                Err(_) => {
+                    // シリアル通信エラーが発生した場合、ここで停止
+                    loop {}
+                }
+            }
             loop {}
         }
     };

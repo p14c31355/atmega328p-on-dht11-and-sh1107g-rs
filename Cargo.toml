@@ -16,7 +16,7 @@ ufmt = "0.2.0"
 nb = "1.1.0"
 embedded-hal = "1.0"
 embedded-dht-rs = "0.5.0"
-sh1107g-rs = {git = "https://github.com/p14c31355/sh1107g-rs.git", branch = "main" }
+sh1107g-rs = {git = "https://github.com/p14c31355/sh1107g-rs.git", branch = "hotfix/init" }
 embedded-graphics = "0.8.1"
 
 [dependencies.arduino-hal]

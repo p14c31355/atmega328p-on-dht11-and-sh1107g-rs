@@ -1,11 +1,10 @@
 #![no_std]
 #![no_main]
 
-use arduino_hal::prelude::*;
 use arduino_hal::{i2c, Peripherals};
 use panic_halt as _;
 
-use sh1107g_rs::{Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
+use sh1107g_rs::Sh1107gBuilder;
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyle},
     pixelcolor::BinaryColor,

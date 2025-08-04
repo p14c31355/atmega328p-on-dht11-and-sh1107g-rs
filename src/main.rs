@@ -53,6 +53,32 @@ fn main() -> ! {
         }
     };
 
+    let init_cmds: &[u8] = &[
+        0xAE,           // Display Off
+        0x40,           // Display Start Line
+        0x20, 0x02,     // Memory Addressing Mode
+        0x81, 0x80,     // Contrast Control
+        0xA0,           // Segment Remap (通常表示)
+        0xA4,           // Entire Display On
+        0xA6,           // Normal Display
+        0xA8, 0x7F,     // Multiplex Ratio
+        0xD3, 0x60,     // Display Offset
+        0xD5, 0x51,     // Display Clock Divide Ratio
+        0xC0,           // COM Output Scan Direction (通常表示)
+        0xD9, 0x22,     // Pre-charge Period
+        0xDA, 0x12,     // COM Pins Hardware Configuration
+        0xDB, 0x35,     // VCOMH Deselect Level
+        0xAD, 0x8B,     // Charge Pump
+        0xAF,           // Display On
+    ];
+
+    if let Err(_) = display.write_command_list(init_cmds, &mut serial) {
+        uwriteln!(&mut serial, "CMD LIST FAILED").ok();
+        loop {}
+    }
+    uwriteln!(&mut serial, "CMD LIST OK").ok();
+
+
     if let Err(_) = display.init() {
         uwriteln!(&mut serial, "Display init FAILED!").ok();
         loop {}

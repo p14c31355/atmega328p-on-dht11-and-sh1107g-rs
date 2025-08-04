@@ -43,8 +43,10 @@ fn main() -> ! {
             uwriteln!(&mut serial, "Display build OK").ok();
             d
         }
-        Err(_) => {
+        Err(e) => {
             uwriteln!(&mut serial, "Display build FAILED!").ok();
+            // Optionally show the error (if it implements `core::fmt::Debug`)
+            // uwriteln!(&mut serial, "{:?}", e).ok();
             loop {}
         }
     };

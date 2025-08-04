@@ -17,7 +17,20 @@ use ufmt::uwriteln;
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    // ... （シリアルとI2Cの初期化） ...
+    let dp = Peripherals::take().unwrap();
+    let pins = arduino_hal::pins!(dp);
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+
+    uwriteln!(&mut serial, "Start!").ok();
+
+    // I2C 初期化
+    let i2c = i2c::I2c::new(
+        dp.TWI,
+        pins.a4.into_pull_up_input(), // SDA
+        pins.a5.into_pull_up_input(), // SCL
+        100_000,
+    );
+    uwriteln!(&mut serial, "I2C init OK").ok();
 
     // 1. ドライバを初期化
     let mut display = match Sh1107gBuilder::new()
@@ -34,10 +47,7 @@ fn main() -> ! {
     uwriteln!(&mut serial, "Driver built. Clearing screen...").ok();
 
     // 2. 画面全体をオフ（黒）でクリアする
-    if display.clear(BinaryColor::Off).is_err() {
-        uwriteln!(&mut serial, "Clear FAILED!").ok();
-        loop {}
-    }
+    display.clear(BinaryColor::Off).unwrap();
     uwriteln!(&mut serial, "Buffer cleared.").ok();
 
     // 3. クリアしたバッファをディスプレイに書き込む

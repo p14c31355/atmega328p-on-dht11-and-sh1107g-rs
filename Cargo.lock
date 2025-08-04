@@ -248,12 +248,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
-name = "proc-macro-hack"
-version = "0.5.20+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -274,14 +268,13 @@ dependencies = [
 [[package]]
 name = "sh1107g-rs"
 version = "0.1.0"
-source = "git+https://github.com/p14c31355/sh1107g-rs.git?branch=hotfix%2Finit#d5ee1ecf71d5acb1a7953c6fe63e23c89592646b"
 dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",
  "embedded-hal 1.0.0",
  "heapless",
  "ufmt",
- "ufmt-macros 0.2.0",
+ "ufmt-macros",
  "ufmt-write",
 ]
 
@@ -308,20 +301,8 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a64846ec02b57e9108d6469d98d1648782ad6bb150a95a9baac26900bbeab9d"
 dependencies = [
- "ufmt-macros 0.3.0",
+ "ufmt-macros",
  "ufmt-write",
-]
-
-[[package]]
-name = "ufmt-macros"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4ab6c92f30c996394a8bd525aef9f03ce01d0d7ac82d81902968057e37dd7d9"
-dependencies = [
- "proc-macro-hack",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

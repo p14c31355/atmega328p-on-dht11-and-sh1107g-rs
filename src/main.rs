@@ -34,30 +34,24 @@ fn main() -> ! {
 
     // 1. ドライバを初期化
     let mut display = match Sh1107gBuilder::new()
-        .connect_i2c(i2c)
-        .with_address(0x3C)
-        .build(&mut serial)
-    {
-        Ok(d) => d,
-        Err(e) => {
-                        // uwriteln!が返すResultを明示的に処理
-            match uwriteln!(&mut serial, "DRIVER INIT ERROR: {:?}", e) {
-                Ok(_) => {}, // 成功時は何もしない
-                Err(_) => {
-                    // シリアル通信エラーが発生した場合、ここで停止
-                    loop {}
-                }
-            }
-            loop {}
-        }
-    };
+    .connect_i2c(i2c)
+    .with_address(0x3C)
+    .build(&mut serial)
+{
+    Ok(d) => d,
+    Err(_) => {
+        // uwriteln!(&mut serial, "DRIVER INIT ERROR: {:?}", e).ok(); ← ここを一旦コメント
+        loop {}
+    }
+};
     uwriteln!(&mut serial, "Driver built. Clearing screen...").ok();
 
     // 2. 画面全体をオフ（黒）でクリアする
-    display.clear(BinaryColor::Off).unwrap();
+    // display.clear(BinaryColor::Off).unwrap();
     uwriteln!(&mut serial, "Buffer cleared.").ok();
 
     // 3. クリアしたバッファをディスプレイに書き込む
+    uwriteln!(&mut serial, "Clearing done. Flushing...").ok();
     if let Err(e) = display.flush() {
         uwriteln!(&mut serial, "Flush FAILED!: {:?}", e).ok();
         loop {}

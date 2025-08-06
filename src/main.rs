@@ -31,12 +31,13 @@ fn main() -> ! {
     );
 
     // --- Builder
-    let mut logger = SerialLogger::new(serial);
-    let mut display = Sh1107gBuilder::new(i2c)
+    let mut logger = SerialLogger::new(&mut serial);
+    let mut builder = Sh1107gBuilder::new();
+        let mut display = builder
         .connect_i2c(i2c)
         .with_address(0x3C)
         .with_logger(&mut logger)
-        .build(&mut logger)
+        .build()
         .unwrap();
 
     // --- Display init + clear

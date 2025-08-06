@@ -1,65 +1,34 @@
 #![no_std]
 #![no_main]
 
+use sh1107g_rs::{Sh1107gBuilder, cmds::*};
+use dvcdbg::SerialLogger;
 use arduino_hal::prelude::*;
-use arduino_hal::{i2c, Peripherals};
-use panic_halt as _;
-
-use sh1107g_rs::{Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
-use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::Text,
-};
-
-use ufmt::uwriteln;
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    let dp = Peripherals::take().unwrap();
+    let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    ufmt::uwriteln!(&mut serial, "Starting...").ok();
 
-    uwriteln!(&mut serial, "Start!").ok();
-
-    // I2C 初期化
-    let i2c = i2c::I2c::new(
+    let i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(), // SDA
-        pins.a5.into_pull_up_input(), // SCL
-        100_000,
+        pins.a4.into_pull_up_input(),
+        pins.a5.into_pull_up_input(),
+        400_000,
     );
-    uwriteln!(&mut serial, "I2C init OK").ok();
 
-    // 1. ドライバを初期化
-    let mut display = match Sh1107gBuilder::new()
-    .connect_i2c(i2c)
-    .with_address(0x3C)
-    .build(&mut serial)
-{
-    Ok(d) => d,
-    Err(_) => {
-        // uwriteln!(&mut serial, "DRIVER INIT ERROR: {:?}", e).ok(); ← ここを一旦コメント
-        loop {}
-    }
-};
-    uwriteln!(&mut serial, "Driver built. Clearing screen...").ok();
+    let mut logger = SerialLogger::new(serial);
 
-    // 2. 画面全体をオフ（黒）でクリアする
-    // display.clear(BinaryColor::Off).unwrap();
-    uwriteln!(&mut serial, "Buffer cleared.").ok();
+    let mut display = Sh1107gBuilder::new(i2c)
+        .with_address(0x3C)
+        .with_logger(&mut logger)
+        .init()
+        .unwrap();
 
-    // 3. クリアしたバッファをディスプレイに書き込む
-    uwriteln!(&mut serial, "Clearing done. Flushing...").ok();
-    if let Err(e) = display.flush() {
-        uwriteln!(&mut serial, "Flush FAILED!: {:?}", e).ok();
-        loop {}
-    }
-    uwriteln!(&mut serial, "Screen flushed. Check the display!").ok();
-    
-    // 実行完了
-    uwriteln!(&mut serial, "All done.").ok();
+    display.clear();
+    display.flush().unwrap();
 
-    loop {} // ここで処理を止めて、ディスプレイが真っ黒になるか確認する
+    loop {}
 }

@@ -4,7 +4,7 @@
 use arduino_hal::prelude::*;
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::logger::SerialLogger;
-use embedded_graphics::draw_target::DrawTarget;
+use embedded_graphics::{draw_target::DrawTarget, pixelcolor::BinaryColor};
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
@@ -31,19 +31,16 @@ fn main() -> ! {
     );
 
     // --- Builder
-    let builder = Sh1107gBuilder::new(i2c)
+    let mut display = Sh1107gBuilder::new(i2c)
+        .connect_i2c(i2c)
         .with_address(0x3C)
-        .with_logger(&mut logger);
-
-    let mut logger = SerialLogger::new(writer);
-    // --- 注意：build に logger の writer を渡す！
-    let mut display = builder
-        .build(logger.writer)
-        .expect("Failed to build SH1107G");
+        .with_logger(&mut logger)
+        .build()
+        .unwrap();
 
     // --- Display init + clear
     display.init().unwrap();
-    display.clear().unwrap();
+    display.clear(BinaryColor::On).unwrap();
     display.flush().unwrap();
 
     loop {}

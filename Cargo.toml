@@ -16,8 +16,11 @@ ufmt = "0.2.0"
 nb = "1.1.0"
 embedded-hal = "1.0"
 embedded-dht-rs = "0.5.0"
-sh1107g-rs = { path = "../sh1107g-rs" } 
 embedded-graphics = "0.8.1"
+
+[dependencies.sh1107g-rs]
+git = "https://github.com/p14c31355/sh1107g-rs"
+features = ["debug_log"]
 
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"

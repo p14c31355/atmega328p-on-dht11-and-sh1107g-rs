@@ -29,6 +29,7 @@ name = "atmega328p-on-dht11-and-sh1107g-rs"
 version = "0.1.0"
 dependencies = [
  "arduino-hal",
+ "dvcdbg",
  "embedded-dht-rs",
  "embedded-graphics",
  "embedded-hal 1.0.0",

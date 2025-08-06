@@ -2,8 +2,9 @@
 #![no_main]
 
 use sh1107g_rs::{Sh1107gBuilder, cmds::*};
-use dvcdbg::SerialLogger;
+use dvcdbg::logger::SerialLogger;
 use arduino_hal::prelude::*;
+use panic_halt as _;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -19,13 +20,15 @@ fn main() -> ! {
         400_000,
     );
 
-    let mut logger = SerialLogger::new(serial);
+    let mut logger = SerialLogger::new(&mut serial);
 
     let mut display = Sh1107gBuilder::new(i2c)
-        .with_address(0x3C)
-        .with_logger(&mut logger)
-        .init()
-        .unwrap();
+    .with_address(0x3C)
+    .with_logger(&mut logger)
+    .build(); // ← Builderを終了して構造体を返す
+
+    display.init()?; // ← そのあとに init
+
 
     display.clear();
     display.flush().unwrap();

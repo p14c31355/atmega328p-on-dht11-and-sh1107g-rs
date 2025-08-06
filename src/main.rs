@@ -4,6 +4,13 @@
 use arduino_hal::prelude::*;
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::logger::SerialLogger;
+use embedded_graphics::draw_target::DrawTarget;
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -28,6 +35,7 @@ fn main() -> ! {
         .with_address(0x3C)
         .with_logger(&mut logger);
 
+    let mut logger = SerialLogger::new(writer);
     // --- 注意：build に logger の writer を渡す！
     let mut display = builder
         .build(logger.writer)

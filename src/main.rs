@@ -16,14 +16,12 @@ use embedded_graphics::{
 use dvcdbg::logger::SerialLogger;
 use log::info;
 
+use embedded_hal::serial::Write;
+
 // `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);
 
-// ラッパーを `arduino_hal` のUsart型に直接実装
-impl<W> core::fmt::Write for FmtWriteWrapper<W>
-where
-    W: arduino_hal::hal::usart::Write<u8>,
-{
+impl<W: Write<u8>> core::fmt::Write for FmtWriteWrapper<W> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for b in s.bytes() {
             nb::block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;

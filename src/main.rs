@@ -3,10 +3,10 @@
 
 use arduino_hal::Peripherals;
 use panic_halt as _;
-use sh1107g_rs::{Sh1107gBuilder, DisplaySize};
+use sh1107g_rs::Sh1107gBuilder;
 
-// ロガーをインポート
-use crate::logger;
+// ロガーをdvcdbgクレートからインポート
+use dvcdbg::logger;
 use log::info;
 
 // `log`フィーチャーが有効なときにロガーを初期化
@@ -32,12 +32,23 @@ fn main() -> ! {
         25_000,
     );
 
-    // OLEDドライバの初期化
-    let mut builder = Sh1107gBuilder::new(i2c, &mut _logger);
+    info!("I2C initialized with 25_000 Hz.");
 
-    // DisplaySize::Display128x128 は存在しない可能性があるので、with_size()は削除します。
-    // 代わりに builder.build() がデフォルトで128x128を想定していると仮定します。
+    // OLEDドライバの初期化
+    // `log`フィーチャーが有効なときのみロガーを渡す
+    let mut builder = {
+        #[cfg(feature = "log")]
+        { Sh1107gBuilder::new(i2c, &mut _logger) }
+
+        #[cfg(not(feature = "log"))]
+        { Sh1107gBuilder::new(i2c) }
+    };
+    
+    info!("OLED builder created. Starting driver build.");
+
     let mut display = builder.build().unwrap();
+
+    info!("OLED driver built successfully. Starting init sequence.");
 
     // デバッガで init() シーケンスの成否をログに出力
     match display.init() {

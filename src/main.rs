@@ -17,12 +17,14 @@ use dvcdbg::logger::SerialLogger;
 use log::info;
 
 use nb::block;
-use core::fmt::Write;
+use core::fmt::Write as FmtWriteTrait; // core::fmt::Write を区別するため
 
-// `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
+// arduino_hal の Usart は nb::Write<u8> を実装している
 struct FmtWriteWrapper<W>(W);
 
-impl<W: Write<u8>> core::fmt::Write for FmtWriteWrapper<W> {
+// ここがポイント！
+// core::fmt::Write はジェネリック無し。W は nb::Write<u8> を実装している必要あり。
+impl<W: nb::Write<u8>> FmtWriteTrait for FmtWriteWrapper<W> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for b in s.bytes() {
             block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
@@ -39,6 +41,7 @@ fn main() -> ! {
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
 
+    // SerialLogger は core::fmt::Write を要求するので OK
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
     info!("Starting Arduino application...");

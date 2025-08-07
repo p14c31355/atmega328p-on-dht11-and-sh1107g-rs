@@ -17,14 +17,12 @@ use dvcdbg::logger::SerialLogger;
 use log::info;
 
 use nb::block;
-use core::fmt::Write;
 
-// `arduino_hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);
 
 impl<W> core::fmt::Write for FmtWriteWrapper<W>
 where
-    W: arduino_hal::hal::serial::Write<u8>,
+    W: embedded_hal::serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for b in s.bytes() {
@@ -53,7 +51,7 @@ fn main() -> ! {
         400_000,
     );
 
-    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build().unwrap();
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build();
 
     info!("Display driver built successfully.");
 
@@ -67,7 +65,8 @@ fn main() -> ! {
         .unwrap();
 
     info!("Text 'Hello, World!' drawn to buffer.");
-
+    
+    display.clear_buffer();
     display.flush().unwrap();
 
     info!("Buffer flushed to display.");

@@ -119,7 +119,6 @@ name = "dvcdbg"
 version = "0.1.0"
 dependencies = [
  "heapless",
- "ufmt",
 ]
 
 [[package]]
@@ -212,7 +211,6 @@ checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
 dependencies = [
  "hash32",
  "stable_deref_trait",
- "ufmt-write",
 ]
 
 [[package]]

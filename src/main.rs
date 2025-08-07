@@ -16,15 +16,15 @@ use embedded_graphics::{
 use dvcdbg::logger::SerialLogger;
 use log::info;
 
-use embedded_hal::serial::Write;
+use nb::block;
 
 // `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);
 
-impl<W: Write<u8>> core::fmt::Write for FmtWriteWrapper<W> {
+impl<W: nb::serial::Write<u8>> core::fmt::Write for FmtWriteWrapper<W> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for b in s.bytes() {
-            nb::block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
+            block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
         }
         Ok(())
     }
@@ -37,9 +37,9 @@ fn main() -> ! {
 
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
-    
+
     let mut logger = SerialLogger::new(&mut serial_wrapper);
-    
+
     info!("Starting Arduino application...");
 
     let i2c = arduino_hal::i2c::I2c::new(
@@ -54,7 +54,6 @@ fn main() -> ! {
     info!("Display driver built successfully.");
 
     display.init().unwrap();
-
     display.clear_buffer();
 
     let character_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
@@ -69,6 +68,5 @@ fn main() -> ! {
 
     info!("Buffer flushed to display.");
 
-    loop {
-    }
+    loop {}
 }

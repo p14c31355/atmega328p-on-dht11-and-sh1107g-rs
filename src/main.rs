@@ -1,105 +1,76 @@
 #![no_std]
 #![no_main]
 
+use core::fmt::Write;
+
 use arduino_hal::Peripherals;
 use panic_halt as _;
-use sh1107g_rs::Sh1107gBuilder;
 
-#[cfg(feature = "log")]
-use dvcdbg::logger;
-#[cfg(feature = "log")]
+// `sh1107g_rs` ドライバクレートをインポート
+use sh1107g_rs::{Sh1107gBuilder, BUFFER_SIZE, DISPLAY_HEIGHT, DISPLAY_WIDTH};
+
+// `embedded-graphics`クレート
+use embedded_graphics::{
+    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    pixelcolor::BinaryColor,
+    prelude::*,
+    text::Text,
+};
+
+// `dvcdbg`ロガークレートをインポート
+use dvcdbg::logger::SerialLogger;
 use log::info;
-
-// `log`フィーチャーが有効なときにロガーを初期化
-#[cfg(feature = "log")]
-extern crate log;
-
-// ロギングが無効な場合にSh1107gBuilderに渡すダミーロガー
-#[cfg(not(feature = "log"))]
-struct NullLogger;
-
-#[cfg(not(feature = "log"))]
-impl log::Log for NullLogger {
-    fn enabled(&self, _metadata: &log::Metadata) -> bool {
-        false
-    }
-    fn log(&self, _record: &log::Record) {}
-    fn flush(&self) {}
-}
-
-#[cfg(not(feature = "log"))]
-static NULL_LOGGER: NullLogger = NullLogger;
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    // ロガーの初期化とインスタンスの作成
-    #[cfg(feature = "log")]
-    let mut _logger = logger::init().unwrap();
-    #[cfg(feature = "log")]
-    info!("Arduino HAL is initialized.");
+    // ロガーのシリアルポートをUART0 (D0, D1ピン)で初期化
+    let serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut logger = SerialLogger::new(writer);
+    
+    // シリアルポートをロガーに渡すことで、`info!`マクロの出力先になる
+    info!("Starting Arduino application...");
 
-    // I2Cの初期化
+    // I2CバスをA4 (SDA) と A5 (SCL) ピンで初期化
     let i2c = arduino_hal::i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
-        25_000,
+        400_000, // 高速モード
     );
 
-    #[cfg(feature = "log")]
-    info!("I2C initialized with 25_000 Hz.");
+    // `Sh1107gBuilder`にI2Cバスとロガーを渡してドライバをビルド
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build().unwrap();
 
-    // OLEDドライバの初期化
-    let mut builder = {
-        #[cfg(feature = "log")]
-        { Sh1107gBuilder::new(i2c, &mut _logger) }
+    info!("Display driver built successfully.");
 
-        #[cfg(not(feature = "log"))]
-        { Sh1107gBuilder::new(i2c, &mut NULL_LOGGER) }
-    };
+    // ディスプレイを初期化
+    // `init()`は画面をクリアし、コマンドを送信します。
+    display.init().unwrap();
 
-    #[cfg(feature = "log")]
-    info!("OLED builder created. Starting driver build.");
+    // `embedded-graphics`の描画開始
+    // 描画前にバッファをクリアするのが良いプラクティスです
+    display.clear_buffer();
 
-    let mut display = builder.build().unwrap();
+    // テキストスタイルを定義
+    let character_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 
-    #[cfg(feature = "log")]
-    info!("OLED driver built successfully. Starting init sequence.");
+    // "Hello, World!" を描画
+    Text::new("Hello, World!", Point::new(16, 64), character_style)
+        .draw(&mut display)
+        .unwrap();
 
-    // デバッガで init() シーケンスの成否をログに出力
-    match display.init() {
-        Ok(_) => {
-            #[cfg(feature = "log")]
-            info!("Display initialization successful!");
-        },
-        Err(e) => {
-            // エラーをログに出力（デバッグ情報として）
-            #[cfg(feature = "log")]
-            info!("Display initialization failed: {:?}", e);
-        }
-    };
+    info!("Text 'Hello, World!' drawn to buffer.");
 
-    #[cfg(feature = "log")]
-    info!("Entering main loop...");
+    // バッファの内容を物理ディスプレイに送信
+    display.flush().unwrap();
 
+    info!("Buffer flushed to display.");
+
+    // プログラムが終了しないように無限ループ
     loop {
-        // flush() の実行もログで確認
-        match display.flush() {
-            Ok(_) => {
-                #[cfg(feature = "log")]
-                info!("Flush successful.");
-            },
-            Err(e) => {
-                #[cfg(feature = "log")]
-                info!("Flush failed: {:?}", e);
-            }
-        };
-
-        // 描画や他のロジックをここに追加
-
-        arduino_hal::delay_ms(500); // 500ミリ秒待つ
+        // 必要に応じてここに描画やセンサー読み取りのロジックを追加
     }
 }

@@ -16,18 +16,17 @@ use embedded_graphics::{
 use dvcdbg::logger::SerialLogger;
 use log::info;
 
-use nb::block;
-use core::fmt::Write as FmtWriteTrait; // core::fmt::Write を区別するため
+use embedded_hal::serial::Write as SerialWrite;
 
 // arduino_hal の Usart は nb::Write<u8> を実装している
 struct FmtWriteWrapper<W>(W);
 
 // ここがポイント！
 // core::fmt::Write はジェネリック無し。W は nb::Write<u8> を実装している必要あり。
-impl<W: nb::Write<u8>> FmtWriteTrait for FmtWriteWrapper<W> {
+impl<W: SerialWrite<u8>> core::fmt::Write for FmtWriteWrapper<W> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for b in s.bytes() {
-            block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
+            nb::block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
         }
         Ok(())
     }

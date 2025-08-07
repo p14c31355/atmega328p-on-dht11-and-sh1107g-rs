@@ -19,13 +19,13 @@ use log::info;
 // `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);
 
+// ラッパーを `arduino_hal` のUsart型に直接実装
 impl<W> core::fmt::Write for FmtWriteWrapper<W>
 where
     W: arduino_hal::hal::usart::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        let mut bytes = s.bytes();
-        while let Some(b) = bytes.next() {
+        for b in s.bytes() {
             nb::block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
         }
         Ok(())

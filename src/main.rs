@@ -17,11 +17,12 @@ use dvcdbg::logger::SerialLogger;
 use log::info;
 
 use nb::block;
+use core::fmt::Write;
 
 // `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);
 
-impl<W: nb::serial::Write<u8>> core::fmt::Write for FmtWriteWrapper<W> {
+impl<W: Write<u8>> core::fmt::Write for FmtWriteWrapper<W> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for b in s.bytes() {
             block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;

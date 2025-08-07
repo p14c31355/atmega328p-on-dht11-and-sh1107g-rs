@@ -51,7 +51,7 @@ fn main() -> ! {
         400_000,
     );
 
-    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build();
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build_logger().unwrap();
 
     info!("Display driver built successfully.");
 
@@ -66,7 +66,6 @@ fn main() -> ! {
 
     info!("Text 'Hello, World!' drawn to buffer.");
     
-    display.clear_buffer();
     display.flush().unwrap();
 
     info!("Buffer flushed to display.");

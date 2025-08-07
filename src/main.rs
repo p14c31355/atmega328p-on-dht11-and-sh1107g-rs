@@ -27,8 +27,9 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
 
     // ロガーのシリアルポートをUART0 (D0, D1ピン)で初期化
-    let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut logger = SerialLogger::new(writer);
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    // `serial`変数をSerialLoggerに渡すように修正
+    let mut logger = SerialLogger::new(&mut serial);
     
     // シリアルポートをロガーに渡すことで、`info!`マクロの出力先になる
     info!("Starting Arduino application...");

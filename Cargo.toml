@@ -22,6 +22,7 @@ dvcdbg = { version = "0.1.0", path = "../dvcdbg", features = ["debug_log"]}
 log = "0.4.27"
 defmt = "1.0.1"
 defmt-rtt = "1.0.0"
+serial-embedded-hal = "0.1.2"
 
 [dependencies.sh1107g-rs]
 path = "../sh1107g-rs"

@@ -16,17 +16,19 @@ use embedded_graphics::{
 use dvcdbg::logger::SerialLogger;
 use log::info;
 
-use embedded_hal::serial::Write as SerialWrite;
+use nb::block;
+use core::fmt::Write;
 
-// arduino_hal の Usart は nb::Write<u8> を実装している
+// `arduino_hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);
 
-// ここがポイント！
-// core::fmt::Write はジェネリック無し。W は nb::Write<u8> を実装している必要あり。
-impl<W: SerialWrite<u8>> core::fmt::Write for FmtWriteWrapper<W> {
+impl<W> core::fmt::Write for FmtWriteWrapper<W>
+where
+    W: arduino_hal::hal::serial::Write<u8>,
+{
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for b in s.bytes() {
-            nb::block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
+            block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
         }
         Ok(())
     }
@@ -40,12 +42,11 @@ fn main() -> ! {
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
 
-    // SerialLogger は core::fmt::Write を要求するので OK
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
     info!("Starting Arduino application...");
 
-    let i2c = arduino_hal::i2c::I2c::new(
+    let i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),

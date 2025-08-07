@@ -21,7 +21,7 @@ struct FmtWriteWrapper<W>(W);
 
 impl<W> core::fmt::Write for FmtWriteWrapper<W>
 where
-    W: serial_embedded_hal::Write<u8>,
+    W: arduino_hal::hal::usart::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let mut bytes = s.bytes();

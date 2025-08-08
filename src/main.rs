@@ -74,17 +74,20 @@ fn main() -> ! {
     use core::fmt::Write;
     use dvcdbg::logger::Logger;
 
+    use core::convert::Infallible;
+
     for &cmd in init_cmds {
         let res = display.send_cmd(cmd);
         let mut buf: String<64> = String::new();
         match res {
             Ok(_) => {
                 write!(buf, "I2C CMD 0x{:02X} sent OK", cmd).ok();
-                logger.log_i2c(buf.as_str(), Ok(()));
+                logger.log_i2c::<(), Infallible>(buf.as_str(), Ok(()));
             }
             Err(e) => {
                 write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e).ok();
-                logger.log_i2c(buf.as_str(), Err(()));
+                // エラー型がわからない場合は () を入れるか、適宜変更してください
+                logger.log_i2c::<(), Infallible>(buf.as_str(), Err(()));
             }
         }
     }

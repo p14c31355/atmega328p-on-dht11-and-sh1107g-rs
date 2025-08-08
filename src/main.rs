@@ -1,24 +1,20 @@
 #![no_std]
 #![no_main]
 
+use arduino_hal::prelude::*;
 use arduino_hal::Peripherals;
 use panic_halt as _;
 
-use sh1107g_rs::Sh1107gBuilder;
-
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-};
+use sh1107g_rs::{Sh1107gBuilder, Sh1107g};
 
 use dvcdbg::logger::SerialLogger;
+
+use core::fmt::Write;
+use heapless::String;
 use nb::block;
 
-use ufmt::{uwrite, uwriteln};
-use core::fmt::Write; // これ必須
-
-// UART用の書き込みラッパー
 struct FmtWriteWrapper<W>(W);
+
 impl<W> core::fmt::Write for FmtWriteWrapper<W>
 where
     W: embedded_hal::serial::Write<u8>,
@@ -36,66 +32,47 @@ fn main() -> ! {
     let dp = Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
+    // UART 57600 baud
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
-    let mut i2c = arduino_hal::I2c::new(
+    // I2C初期化 (SCL=A5, SDA=A4, 100kHz)
+    let i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
+        pins.a4.into_pull_up_input(),
         100_000,
     );
 
+    // SH1107g OLEDドライバ初期化
     let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-        //.with_address(0x3C) // 必要なら指定
+        .with_address(0x3C)
         .build();
 
-    // 初期化コマンド列
-    let init_cmds: &[u8] = &[
-        0xAE,       // DISPLAY_OFF
-        0xAD, 0x8B, // CHARGE_PUMP_ON_CMD + CHARGE_PUMP_ON_DATA
-        0xA8, 0x7F, // SET_MULTIPLEX_RATIO + MULTIPLEX_RATIO_DATA
-        0xD3, 0x60, // DISPLAY_OFFSET_CMD + DISPLAY_OFFSET_DATA
-        0x40,       // DISPLAY_START_LINE_CMD
-        0xD5, 0x51, // CLOCK_DIVIDE_CMD + CLOCK_DIVIDE_DATA
-        0xC0,       // COM_OUTPUT_SCAN_DIR
-        0xDA, 0x12, // SET_COM_PINS_CMD + SET_COM_PINS_DATA
-        0x81, 0x80, // CONTRAST_CONTROL_CMD + CONTRAST_CONTROL_DATA
-        0xD9, 0x22, // PRECHARGE_CMD + PRECHARGE_DATA
-        0xDB, 0x35, // VCOM_DESELECT_CMD + VCOM_DESELECT_DATA
-        0xA0,       // SEGMENT_REMAP
-        0xA4,       // SET_ENTIRE_DISPLAY_ON_OFF_CMD
-        0xA6,       // SET_NORMAL_INVERSE_DISPLAY_CMD
-        0xAF,       // DISPLAY_ON
-    ];
-
-    use heapless::String;
-    use core::fmt::Write;
-    use dvcdbg::logger::Logger;
-
-    use core::convert::Infallible;
-
-    for &cmd in init_cmds {
-    let res = display.send_cmd(cmd);
-    let mut buf: String<64> = String::new();
-
-    match res {
-        Ok(_) => {
-            let _ = write!(buf, "I2C CMD 0x{:02X} sent OK", cmd);
-            logger.log_i2c(buf.as_str(), Ok(()));
-        }
-        Err(e) => {
-            let _ = write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e);
-            logger.log_i2c(buf.as_str(), Err(()));
-        }
+    // 初期化処理 (コマンド送信時にログ出力される)
+    if let Err(e) = display.init() {
+        let mut buf: String<64> = String::new();
+        let _ = write!(buf, "Display init failed: {:?}", e);
+        logger.log_i2c(buf.as_str(), Err(()));
+        loop {}
     }
-}
 
     display.clear_buffer();
-    display.flush().unwrap();
+
+    // ここで簡単に何か描画する（例として全部点灯）
+    for i in 0..display.buffer.len() {
+        display.buffer[i] = 0xFF;
+    }
+
+    // バッファをOLEDへ送信（flush時にもログあり）
+    if let Err(e) = display.flush() {
+        let mut buf: String<64> = String::new();
+        let _ = write!(buf, "Flush failed: {:?}", e);
+        logger.log_i2c(buf.as_str(), Err(()));
+    }
 
     loop {
-        // ここで停止
+        // ここは無限ループ
     }
 }

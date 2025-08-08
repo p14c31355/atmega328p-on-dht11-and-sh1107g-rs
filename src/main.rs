@@ -47,9 +47,10 @@ fn main() -> ! {
         100_000,
     );
 
+    // display作成時にlogger渡さない（Sh1107gBuilder::new(i2c)などに変更）
     let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-        //.with_address(0x3C) // 必要なら指定
-        .build();
+    //.with_address(0x3C)
+    .build();
 
     // 初期化コマンド列
     let init_cmds: &[u8] = &[
@@ -77,21 +78,8 @@ fn main() -> ! {
     use core::convert::Infallible;
 
     for &cmd in init_cmds {
-    let res = display.send_cmd(cmd);
-    let mut buf = heapless::String::<64>::new();
-
-    match &res {
-    Ok(_) => {
-        let _ = write!(buf, "I2C CMD 0x{:02X} sent OK", cmd);
-        logger.log_i2c(buf.as_str(), Ok::<(), ()>(()));
-    }
-    Err(e) => {
-        let _ = write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e);
-        logger.log_i2c(buf.as_str(), Err(e));
-    }
+    let _ = display.send_cmd(cmd);
 }
-
-    }
     display.clear_buffer();
     display.flush().unwrap();
 

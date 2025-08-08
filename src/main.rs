@@ -38,7 +38,7 @@ fn main() -> ! {
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
     // 内部の FmtWriteWrapper へ書き込みたい場合
-    writeln!(logger.writer_mut(), "Start main").ok();
+    log!(logger, "Start main");
 
     // I2C 初期化（SDA: A4, SCL: A5）
     let i2c = arduino_hal::I2c::new(
@@ -50,8 +50,6 @@ fn main() -> ! {
 
     // SH1107G 初期化
     let mut display = Sh1107gBuilder::new(i2c, &mut logger).build();
-
-    log!(logger, "Display initialized");
 
     // 画面全体を白で塗りつぶす
     let white_style = PrimitiveStyle::with_fill(BinaryColor::On);

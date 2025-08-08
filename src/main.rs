@@ -49,13 +49,9 @@ fn main() -> ! {
 
     // SH1107G 初期化 (build_logger()で初期化成功失敗も検知)
     let mut display = match Sh1107gBuilder::new(i2c, &mut logger).build_logger() {
-        Ok(d) => {
-            log!(logger, "✅ SH1107G initialized successfully");
-            d
-        }
+        Ok(d) => d,
         Err(e) => {
             log!(logger, "❌ SH1107G initialization failed: {:?}", e);
-            // ここで止めるか、ループで止めるか選択可能
             loop {}
         }
     };
@@ -64,26 +60,37 @@ fn main() -> ! {
     let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
     let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 128));
 
-    log!(logger, "🎨 Drawing full white rectangle...");
+    // display.logger を借用してログ出す
+    if let Some(logger) = display.logger.as_mut() {
+        log!(logger, "🎨 Drawing full white rectangle...");
+    }
+
     if let Err(e) = rect.into_styled(white_style).draw(&mut display) {
-        log!(logger, "❌ Drawing failed: {:?}", e);
-    } else {
+        if let Some(logger) = display.logger.as_mut() {
+            log!(logger, "❌ Drawing failed: {:?}", e);
+        }
+    } else if let Some(logger) = display.logger.as_mut() {
         log!(logger, "✅ Drawing succeeded");
     }
 
-    // バッファ内容をOLEDへ送信 (flush)
-    log!(logger, "📡 Flushing buffer to display...");
+    if let Some(logger) = display.logger.as_mut() {
+        log!(logger, "📡 Flushing buffer to display...");
+    }
+
     if let Err(e) = display.flush() {
-        log!(logger, "❌ Flush failed: {:?}", e);
-    } else {
+        if let Some(logger) = display.logger.as_mut() {
+            log!(logger, "❌ Flush failed: {:?}", e);
+        }
+    } else if let Some(logger) = display.logger.as_mut() {
         log!(logger, "✅ Flush succeeded, display updated");
     }
 
-    log!(logger, "🔄 Entering main loop");
+    if let Some(logger) = display.logger.as_mut() {
+        log!(logger, "🔄 Entering main loop");
+    }
 
     loop {
-        // ここは処理なしでループ
-        // 必要に応じて低消費電力モードを入れてもよい
+        // メインループ
     }
 }
 

@@ -8,23 +8,24 @@ use embedded_graphics::{
     prelude::*,
 };
 use panic_halt as _;
-use sh1107g_rs::Sh1107g;
-use dvcdbg::logger::{Logger, SerialLogger, NoopLogger}; // Logger, SerialLogger, NoopLogger をインポート
-use dvcdbg::log; // log! マクロをインポート
-use core::fmt::Write; // core::fmt::Write トレイトをインポート
+use sh1107g_rs::{Sh1107g, DefaultLogger};
+use dvcdbg::logger::{Logger, SerialLogger};
+use dvcdbg::log;
+use core::fmt::Write;
+use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
 
 // arduino_hal::DefaultSerial を core::fmt::Write に適合させるラッパー
-struct SerialWriter<'a, W: embedded_hal::serial::Write<u8>> {
+struct SerialWriter<'a, W: EmbeddedHalSerialWrite<u8>> {
     writer: &'a mut W,
 }
 
-impl<'a, W: embedded_hal::serial::Write<u8>> SerialWriter<'a, W> {
+impl<'a, W: EmbeddedHalSerialWrite<u8>> SerialWriter<'a, W> {
     fn new(writer: &'a mut W) -> Self {
         Self { writer }
     }
 }
 
-impl<'a, W: embedded_hal::serial::Write<u8>> Write for SerialWriter<'a, W> {
+impl<'a, W: EmbeddedHalSerialWrite<u8>> Write for SerialWriter<'a, W> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for byte in s.bytes() {
             nb::block!(self.writer.write(byte)).map_err(|_| core::fmt::Error)?;
@@ -42,29 +43,30 @@ fn main() -> ! {
     let mut serial_writer = SerialWriter::new(&mut serial);
     let mut logger = SerialLogger::new(&mut serial_writer);
 
-    log!(&mut logger, "Initializing...");
-
     let i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4,
-        pins.a5,
+        pins.a4.into_pull_up_input(),
+        pins.a5.into_pull_up_input(),
         50000,
     );
 
     let mut display: Sh1107g<
-        arduino_hal::I2c, // I2cInterface を削除し、arduino_hal::I2c を直接指定
-        NoopLogger, // ロガーの型を NoopLogger に指定
-    > = Sh1107g::new(i2c, 0x3C, Some(&mut logger)); // I2cInterface::new(i2c) を i2c に変更
+        arduino_hal::I2c,
+        _,
+    > = Sh1107g::new(i2c, 0x3C, Some(&mut logger));
+
+    // log! マクロの呼び出しを display.with_logger でラップ
+    display.with_logger(|logger_ref| log!(logger_ref, "Initializing..."));
 
     display.init().unwrap();
     display.clear(BinaryColor::Off).unwrap();
 
-    log!(&mut logger, "Display initialized and cleared.");
+    display.with_logger(|logger_ref| log!(logger_ref, "Display initialized and cleared."));
 
     display.clear(BinaryColor::On).unwrap();
     display.flush().unwrap();
 
-    log!(&mut logger, "Display filled with white.");
+    display.with_logger(|logger_ref| log!(logger_ref, "Display filled with white."));
 
     loop {
         // 無限ループ

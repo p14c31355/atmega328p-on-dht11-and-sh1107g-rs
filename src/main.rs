@@ -14,6 +14,9 @@ use embedded_graphics::{
 use dvcdbg::logger::SerialLogger;
 use nb::block;
 
+use ufmt::{uwrite, uwriteln};
+use core::fmt::Write; // これ必須
+
 // UART用の書き込みラッパー
 struct FmtWriteWrapper<W>(W);
 impl<W> core::fmt::Write for FmtWriteWrapper<W>
@@ -48,7 +51,7 @@ fn main() -> ! {
         //.with_address(0x3C) // 必要なら指定
         .build();
 
-    // 初期化コマンドを1つずつ送信してログ出力しつつ初期化
+    // 初期化コマンド列
     let init_cmds: &[u8] = &[
         0xAE,       // DISPLAY_OFF
         0xAD, 0x8B, // CHARGE_PUMP_ON_CMD + CHARGE_PUMP_ON_DATA
@@ -70,13 +73,16 @@ fn main() -> ! {
     for &cmd in init_cmds {
         let res = display.send_cmd(cmd);
         match res {
-            Ok(_) => logger.log_info(&format!("I2C CMD 0x{:02X} sent OK", cmd)),
-            Err(e) => logger.log_error(&format!("I2C CMD 0x{:02X} failed: {:?}", cmd, e)),
+            Ok(_) => {
+                let _ = uwriteln!(logger, "I2C CMD 0x{:02X} sent OK", cmd);
+            }
+            Err(e) => {
+                let _ = uwriteln!(logger, "I2C CMD 0x{:02X} failed: {:?}", cmd, e);
+            }
         }
     }
 
     display.clear_buffer();
-
     display.flush().unwrap();
 
     loop {

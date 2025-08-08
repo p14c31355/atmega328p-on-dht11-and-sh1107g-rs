@@ -9,10 +9,25 @@ use embedded_graphics::{
     style::PrimitiveStyleBuilder,
 };
 
-use sh1107g_rs::{Sh1107gBuilder, display_size::DisplaySize};
+use sh1107g_rs::{Sh1107gBuilder, DisplaySize};
 use dvcdbg::{log_bytes, logger::SerialLogger};
 
-use panic_halt as _;
+use embedded_hal::serial::Write;
+
+// `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
+struct FmtWriteWrapper<W>(W);
+
+impl<W> core::fmt::Write for FmtWriteWrapper<W>
+where
+    W: Write<u8>,
+{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        for b in s.bytes() {
+            nb::block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
+        }
+        Ok(())
+    }
+}
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -21,8 +36,9 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
 
     // UART 初期化（57600bps）
-    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut logger = SerialLogger::new(&mut serial);
+    let serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut serial_wrapper = FmtWriteWrapper(serial);
+    let mut logger = SerialLogger::new(&mut serial_wrapper);
 
     // I2C 初期化
     let i2c = arduino_hal::I2c::new(

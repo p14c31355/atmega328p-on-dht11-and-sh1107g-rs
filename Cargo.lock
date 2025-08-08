@@ -35,6 +35,7 @@ dependencies = [
  "embedded-dht-rs",
  "embedded-graphics",
  "embedded-hal 0.2.7",
+ "heapless",
  "log",
  "nb 1.1.0",
  "panic-halt",

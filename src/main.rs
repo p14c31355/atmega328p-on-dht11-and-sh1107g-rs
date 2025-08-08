@@ -70,14 +70,21 @@ fn main() -> ! {
         0xAF,       // DISPLAY_ON
     ];
 
+    use heapless::String;
+    use core::fmt::Write;
+    use dvcdbg::logger::Logger;
+
     for &cmd in init_cmds {
         let res = display.send_cmd(cmd);
+        let mut buf: String<64> = String::new();
         match res {
             Ok(_) => {
-                let _ = uwriteln!(logger, "I2C CMD 0x{:02X} sent OK", cmd);
+                write!(buf, "I2C CMD 0x{:02X} sent OK", cmd).ok();
+                logger.log_i2c(buf.as_str(), Ok(()));
             }
             Err(e) => {
-                let _ = uwriteln!(logger, "I2C CMD 0x{:02X} failed: {:?}", cmd, e);
+                write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e).ok();
+                logger.log_i2c(buf.as_str(), Err(()));
             }
         }
     }

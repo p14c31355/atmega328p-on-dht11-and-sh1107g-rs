@@ -78,21 +78,21 @@ fn main() -> ! {
 
     for &cmd in init_cmds {
     let res = display.send_cmd(cmd);
-    
     let mut buf: heapless::String<64> = heapless::String::new();
     use core::fmt::Write;
 
     match &res {
         Ok(_) => {
             let _ = write!(buf, "I2C CMD 0x{:02X} sent OK", cmd);
-            logger.log_i2c(buf.as_str(), Ok::<(), ()> (()));
+            logger.log_i2c(buf.as_str(), Ok::<(), ()>(()));
         }
         Err(e) => {
             let _ = write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e);
-            logger.log_i2c(buf.as_str(), Err::<(), ()> (()));
+            logger.log_i2c(buf.as_str(), Err::<(), ()>(()));
         }
     }
 }
+
 
 
     display.clear_buffer();

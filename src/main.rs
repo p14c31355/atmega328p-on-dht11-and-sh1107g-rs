@@ -2,14 +2,7 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{Rectangle, PrimitiveStyle},
-};
-use sh1107g_rs::{Sh1107gBuilder, error::Sh1107gError};
-use dvcdbg::{log, logger::{self, SerialLogger, Logger}};
-
+use dvcdbg::{log, logger::{SerialLogger, Logger}};
 use embedded_hal::serial::Write;
 use core::fmt::Write as FmtWrite;
 
@@ -32,72 +25,13 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    // シリアル初期化（57600bps）
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
-    log!(logger, "🚀 Start main");
+    log!(logger, "🚀 Logger test OK");
 
-    // I2C初期化 (SDA:A4, SCL:A5)
-    let i2c = arduino_hal::I2c::new(
-        dp.TWI,
-        pins.a4.into_pull_up_input(),
-        pins.a5.into_pull_up_input(),
-        400_000,
-    );
-
-    // SH1107G 初期化 (build_logger()で初期化成功失敗も検知)
-    let mut display = match Sh1107gBuilder::new(i2c, &mut logger).build_logger() {
-        Ok(d) => d,
-        Err(e) => {
-            log!(logger, "❌ SH1107G initialization failed: {:?}", e);
-            loop {}
-        }
-    };
-
-    // 画面全体を白で塗りつぶし
-    let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
-    let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 128));
-
-    // display.logger を借用してログ出す
-    // Sh1107g に with_logger メソッドがある前提
-
-    display.with_logger(|logger| {
-        log!(logger, "🎨 Drawing full white rectangle...");
-    });
-
-    if let Err(e) = rect.into_styled(white_style).draw(&mut display) {
-        display.with_logger(|logger| {
-            log!(logger, "❌ Drawing failed: {:?}", e);
-        });
-    } else {
-        display.with_logger(|logger| {
-            log!(logger, "✅ Drawing succeeded");
-        });
-    }
-
-    display.with_logger(|logger| {
-        log!(logger, "📡 Flushing buffer to display...");
-    });
-
-    if let Err(e) = display.flush() {
-        display.with_logger(|logger| {
-            log!(logger, "❌ Flush failed: {:?}", e);
-        });
-    } else {
-        display.with_logger(|logger| {
-            log!(logger, "✅ Flush succeeded, display updated");
-        });
-    }
-
-    display.with_logger(|logger| {
-        log!(logger, "🔄 Entering main loop");
-    });
-
-    loop {
-        // メインループ
-    }
+    loop {}
 }
 
 use panic_halt as _;

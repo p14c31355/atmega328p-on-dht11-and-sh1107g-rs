@@ -9,8 +9,8 @@ use embedded_graphics::{
     style::PrimitiveStyleBuilder,
 };
 
-use sh1107g_rs::{Sh1107g, Sh1107gBuilder, display_size::DisplaySize};
-use dvcdbg::{logger::SerialLogger, log_bytes};
+use sh1107g_rs::{Sh1107gBuilder, display_size::DisplaySize};
+use dvcdbg::{log_bytes, logger::SerialLogger};
 
 use panic_halt as _;
 
@@ -21,8 +21,8 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
 
     // UART 初期化（57600bps）
-    let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut logger = SerialLogger::new(serial);
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut logger = SerialLogger::new(&mut serial);
 
     // I2C 初期化
     let i2c = arduino_hal::I2c::new(

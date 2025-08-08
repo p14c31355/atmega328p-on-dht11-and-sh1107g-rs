@@ -44,23 +44,42 @@ fn main() -> ! {
         100_000,
     );
 
-    // ドライバのビルド（logger付き）
     let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-        //.with_address(0x3C) // 必要ならアドレス指定
+        //.with_address(0x3C) // 必要なら指定
         .build();
 
-    // 初期化コマンド送信
-    display.init().unwrap();
+    // 初期化コマンドを1つずつ送信してログ出力しつつ初期化
+    let init_cmds: &[u8] = &[
+        0xAE,       // DISPLAY_OFF
+        0xAD, 0x8B, // CHARGE_PUMP_ON_CMD + CHARGE_PUMP_ON_DATA
+        0xA8, 0x7F, // SET_MULTIPLEX_RATIO + MULTIPLEX_RATIO_DATA
+        0xD3, 0x60, // DISPLAY_OFFSET_CMD + DISPLAY_OFFSET_DATA
+        0x40,       // DISPLAY_START_LINE_CMD
+        0xD5, 0x51, // CLOCK_DIVIDE_CMD + CLOCK_DIVIDE_DATA
+        0xC0,       // COM_OUTPUT_SCAN_DIR
+        0xDA, 0x12, // SET_COM_PINS_CMD + SET_COM_PINS_DATA
+        0x81, 0x80, // CONTRAST_CONTROL_CMD + CONTRAST_CONTROL_DATA
+        0xD9, 0x22, // PRECHARGE_CMD + PRECHARGE_DATA
+        0xDB, 0x35, // VCOM_DESELECT_CMD + VCOM_DESELECT_DATA
+        0xA0,       // SEGMENT_REMAP
+        0xA4,       // SET_ENTIRE_DISPLAY_ON_OFF_CMD
+        0xA6,       // SET_NORMAL_INVERSE_DISPLAY_CMD
+        0xAF,       // DISPLAY_ON
+    ];
 
-    // バッファを0x00でクリア
+    for &cmd in init_cmds {
+        let res = display.send_cmd(cmd);
+        match res {
+            Ok(_) => logger.log_info(&format!("I2C CMD 0x{:02X} sent OK", cmd)),
+            Err(e) => logger.log_error(&format!("I2C CMD 0x{:02X} failed: {:?}", cmd, e)),
+        }
+    }
+
     display.clear_buffer();
 
-    // クリアしたバッファをディスプレイへ送信
     display.flush().unwrap();
 
-    // ここまで来たら砂嵐ではなく真っ黒になるはず
-
     loop {
-        // 無限ループで停止
+        // ここで停止
     }
 }

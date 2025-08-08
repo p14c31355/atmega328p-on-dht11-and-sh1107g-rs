@@ -19,18 +19,31 @@ use core::fmt::Write;
 use nb::block;
 
 // UARTラッパー
+use embedded_io::Write as EmbeddedWrite; // embedded-io の Write トレイトを利用
+use core::fmt::Write as FmtWrite;
+
 struct FmtWriteWrapper<W>(W);
-impl<W> core::fmt::Write for FmtWriteWrapper<W>
+
+impl<W> FmtWriteWrapper<W>
 where
-    W: embedded_hal::serial::Write<u8>,
+    W: EmbeddedWrite,
+{
+    pub fn new(w: W) -> Self {
+        Self(w)
+    }
+}
+
+impl<W> FmtWrite for FmtWriteWrapper<W>
+where
+    W: EmbeddedWrite,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        for b in s.bytes() {
-            block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
-        }
+        // Writer は embedded_io::Write なので write_all によりバイト列を送信
+        self.0.write_all(s.as_bytes()).map_err(|_| core::fmt::Error)?;
         Ok(())
     }
 }
+
 
 #[arduino_hal::entry]
 fn main() -> ! {

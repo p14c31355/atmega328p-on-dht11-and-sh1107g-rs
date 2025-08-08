@@ -61,33 +61,39 @@ fn main() -> ! {
     let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 128));
 
     // display.logger を借用してログ出す
-    if let Some(logger) = display.logger.as_mut() {
+    // Sh1107g に with_logger メソッドがある前提
+
+    display.with_logger(|logger| {
         log!(logger, "🎨 Drawing full white rectangle...");
-    }
+    });
 
     if let Err(e) = rect.into_styled(white_style).draw(&mut display) {
-        if let Some(logger) = display.logger.as_mut() {
+        display.with_logger(|logger| {
             log!(logger, "❌ Drawing failed: {:?}", e);
-        }
-    } else if let Some(logger) = display.logger.as_mut() {
-        log!(logger, "✅ Drawing succeeded");
+        });
+    } else {
+        display.with_logger(|logger| {
+            log!(logger, "✅ Drawing succeeded");
+        });
     }
 
-    if let Some(logger) = display.logger.as_mut() {
+    display.with_logger(|logger| {
         log!(logger, "📡 Flushing buffer to display...");
-    }
+    });
 
     if let Err(e) = display.flush() {
-        if let Some(logger) = display.logger.as_mut() {
+        display.with_logger(|logger| {
             log!(logger, "❌ Flush failed: {:?}", e);
-        }
-    } else if let Some(logger) = display.logger.as_mut() {
-        log!(logger, "✅ Flush succeeded, display updated");
+        });
+    } else {
+        display.with_logger(|logger| {
+            log!(logger, "✅ Flush succeeded, display updated");
+        });
     }
 
-    if let Some(logger) = display.logger.as_mut() {
+    display.with_logger(|logger| {
         log!(logger, "🔄 Entering main loop");
-    }
+    });
 
     loop {
         // メインループ

@@ -14,7 +14,7 @@ bench = false
 panic-halt = "1.0.0"
 ufmt = "0.2.0"
 nb = "1.1.0"
-embedded-hal = "0.2.6"
+embedded-hal = "1.0.0"
 embedded-dht-rs = "0.5.0"
 embedded-graphics = "0.8.1"
 dvcdbg = { version = "0.1.0", path = "../dvcdbg", features = ["debug_log"]}
@@ -23,6 +23,7 @@ log = "0.4.27"
 defmt = "1.0.1"
 defmt-rtt = "1.0.0"
 heapless = "0.8.0"
+sh1107 = "0.1.0"
 
 [dependencies.sh1107g-rs]
 path = "../sh1107g-rs"

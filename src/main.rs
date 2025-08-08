@@ -10,6 +10,8 @@ use embedded_graphics::{
 };
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::logger::SerialLogger;
+use dvcdbg::log;
+use dvcdbg::logger;
 
 use embedded_hal::serial::Write;
 use core::fmt::Write as FmtWrite;
@@ -49,12 +51,7 @@ fn main() -> ! {
     );
 
     // SH1107G 初期化
-    let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-        .build()
-        .unwrap_or_else(|_| {
-            writeln!(logger, "ERR: display init failed").ok();
-            panic!();
-        });
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build();
 
     writeln!(logger, "Display initialized").ok();
 
@@ -65,7 +62,7 @@ fn main() -> ! {
     rect.into_styled(white_style).draw(&mut display).unwrap();
 
     if let Err(e) = display.flush() {
-        writeln!(logger, "ERR: flush failed: {:?}", e).ok();
+        log!(logger, "ERR: flush failed: {:?}", e).ok();
     } else {
         writeln!(logger, "OK: white screen drawn").ok();
     }

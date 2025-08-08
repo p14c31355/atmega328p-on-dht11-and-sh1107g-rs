@@ -6,15 +6,14 @@ use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
     primitives::Rectangle,
-    style::PrimitiveStyleBuilder,
+    primitives::PrimitiveStyle,
 };
+use sh1107g_rs::Sh1107gBuilder;
+use dvcdbg::logger::SerialLogger;
 
-use sh1107g_rs::{Sh1107gBuilder, DisplaySize};
-use dvcdbg::{logger::SerialLogger, log_bytes};
+use embedded_hal::serial::Write;
+use core::fmt::Write as FmtWrite;
 
-use embedded_hal::blocking::serial::Write;
-
-// `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);
 
 impl<W> core::fmt::Write for FmtWriteWrapper<W>
@@ -31,51 +30,44 @@ where
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    // Arduino HAL 初期化
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    // UART 初期化（57600bps）
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
-    // I2C 初期化
     let i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(), // SDA
-        pins.a5.into_pull_up_input(), // SCL
+        pins.a4.into_pull_up_input(),
+        pins.a5.into_pull_up_input(),
         400_000,
     );
 
-    // Sh1107gBuilder を使用してドライバを初期化
     let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-        .with_size(DisplaySize::Display128x128)
+        // .with_size(DisplaySize::Display128x128) ← 削除
         .build()
         .unwrap_or_else(|_| {
-            log_bytes!(b"ERR: display init failed\n", &mut logger).ok();
+            writeln!(logger, "ERR: display init failed").ok();
             panic!()
         });
 
-    // 真っ白に塗りつぶすスタイル
-    let white_style = PrimitiveStyleBuilder::new()
-        .fill_color(BinaryColor::On)
-        .build();
+    let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
 
-    // 全画面矩形
     let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 128));
 
-    // 描画
     if let Err(_) = rect.into_styled(white_style).draw(&mut display) {
-        log_bytes!(b"ERR: draw failed\n", &mut logger).ok();
+        writeln!(logger, "ERR: draw failed").ok();
     }
 
-    // バッファ送信
     if let Err(_) = display.flush() {
-        log_bytes!(b"ERR: flush failed\n", &mut logger).ok();
+        writeln!(logger, "ERR: flush failed").ok();
     } else {
-        log_bytes!(b"OK: white screen drawn\n", &mut logger).ok();
+        writeln!(logger, "OK: white screen drawn").ok();
     }
 
     loop {}
 }
+
+// panic-halt の利用で panic_handler は不要
+use panic_halt as _;

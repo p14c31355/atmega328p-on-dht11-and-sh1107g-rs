@@ -2,26 +2,29 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
-use sh1107g_rs::{Sh1107gBuilder, DisplaySize};
-use dvcdbg::{log_bytes, logger::SerialLogger};
 use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::{Rectangle, Primitive},
+    primitives::Rectangle,
     style::PrimitiveStyleBuilder,
 };
+
+use sh1107g_rs::{Sh1107g, Sh1107gBuilder, display_size::DisplaySize};
+use dvcdbg::{logger::SerialLogger, log_bytes};
 
 use panic_halt as _;
 
 #[arduino_hal::entry]
 fn main() -> ! {
+    // Arduino HAL 初期化
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
+    // UART 初期化（57600bps）
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    // SerialLogger をインスタンス化
     let mut logger = SerialLogger::new(serial);
 
+    // I2C 初期化
     let i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(), // SDA
@@ -30,10 +33,9 @@ fn main() -> ! {
     );
 
     // Sh1107gBuilder を使用してドライバを初期化
-    let mut display = Sh1107gBuilder::new()
-        .connect_i2c(i2c)
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger)
         .with_size(DisplaySize::Display128x128)
-        .build_logger(&mut logger)
+        .build()
         .unwrap_or_else(|_| {
             log_bytes!(b"ERR: display init failed\n", &mut logger).ok();
             panic!()

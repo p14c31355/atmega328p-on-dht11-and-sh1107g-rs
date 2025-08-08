@@ -77,20 +77,22 @@ fn main() -> ! {
     use core::convert::Infallible;
 
     for &cmd in init_cmds {
-        let res = display.send_cmd(cmd);
-        let mut buf: String<64> = String::new();
-        match res {
-            Ok(_) => {
-                write!(buf, "I2C CMD 0x{:02X} sent OK", cmd).ok();
-                logger.log_i2c::<(), Infallible>(buf.as_str(), Ok(()));
-            }
-            Err(e) => {
-                write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e).ok();
-                // エラー型がわからない場合は () を入れるか、適宜変更してください
-                logger.log_i2c::<(), Infallible>(buf.as_str(), Err(()));
-            }
+    let res = display.send_cmd(cmd);
+    let mut buf: heapless::String<64> = heapless::String::new();
+    match res {
+        Ok(_) => {
+            use core::fmt::Write;
+            let _ = write!(buf, "I2C CMD 0x{:02X} sent OK", cmd);
+            logger.log_i2c(buf.as_str(), Ok(()));
+        }
+        Err(e) => {
+            use core::fmt::Write;
+            let _ = write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e);
+            // Errの型は () にして渡す（logger側の型推論ができるように）
+            logger.log_i2c(buf.as_str(), Err(()));
         }
     }
+}
 
     display.clear_buffer();
     display.flush().unwrap();

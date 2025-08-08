@@ -2,101 +2,109 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
-use arduino_hal::Peripherals;
+use arduino_hal::I2c;
 use panic_halt as _;
 
-use sh1107g_rs::{Sh1107gBuilder};
-use dvcdbg::logger::SerialLogger;
+use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::prelude::*;
+use embedded_graphics::primitives::Rectangle;
+use embedded_graphics::style::PrimitiveStyle;
 
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::Rectangle,
-    Drawable,
-};
-
-use core::fmt::Write;
+use embedded_hal::blocking::i2c::Write as I2cWrite;
+use embedded_io::Write as EmbeddedWrite;
+use embedded_hal::serial::Write as HalWrite;
 use nb::block;
 
-// UARTラッパー
-use embedded_io::Write as EmbeddedWrite; // embedded-io の Write トレイトを利用
-use core::fmt::Write as FmtWrite;
+use dvcdbg::logger::{Logger, SerialLogger};
 
-struct FmtWriteWrapper<W>(W);
+/// UARTをembedded-io::Writeに変換するラッパー
+pub struct UsartEmbeddedIo<W>(pub W);
 
-impl<W> FmtWriteWrapper<W>
+impl<W, E> EmbeddedWrite for UsartEmbeddedIo<W>
 where
-    W: EmbeddedWrite,
+    W: HalWrite<u8, Error = E>,
 {
-    pub fn new(w: W) -> Self {
-        Self(w)
+    type Error = E;
+
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        for &b in buf {
+            block!(self.0.write(b))?;
+        }
+        Ok(buf.len())
     }
-}
 
-impl<W> FmtWrite for FmtWriteWrapper<W>
-where
-    W: EmbeddedWrite,
-{
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        // Writer は embedded_io::Write なので write_all によりバイト列を送信
-        self.0.write_all(s.as_bytes()).map_err(|_| core::fmt::Error)?;
+    fn flush(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
 }
 
+/// FmtWrite対応のラッパー
+pub struct FmtWriteWrapper<'a, W: EmbeddedWrite> {
+    inner: &'a mut W,
+}
+
+impl<'a, W: EmbeddedWrite> FmtWriteWrapper<'a, W> {
+    pub fn new(inner: &'a mut W) -> Self {
+        Self { inner }
+    }
+}
+
+impl<'a, W: EmbeddedWrite> core::fmt::Write for FmtWriteWrapper<'a, W> {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.inner.write(s.as_bytes()).map_err(|_| core::fmt::Error)?;
+        Ok(())
+    }
+}
+
+/// OLED I2Cアドレス（例: SH1107G）
+const OLED_ADDR: u8 = 0x3C;
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    let dp = Peripherals::take().unwrap();
+    let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    // UART 57600bps 初期化
+    // UART初期化
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut serial_wrapper = FmtWriteWrapper(serial);
-    let mut logger = SerialLogger::new(&mut serial_wrapper);
+    let mut usart_io = UsartEmbeddedIo(serial);
+    let mut fmt_wrapper = FmtWriteWrapper::new(&mut usart_io);
+    let mut logger = SerialLogger::new(&mut fmt_wrapper);
 
-    // I2C初期化 (SCL=A5, SDA=A4)
-    let i2c = arduino_hal::I2c::new(
+    Logger::log_fmt(&mut logger, format_args!("🔌 Logger initialized\n"));
+
+    // I²C初期化
+    let mut i2c = I2c::new(
         dp.TWI,
-        pins.a5.into_pull_up_input(),
-        pins.a4.into_pull_up_input(),
+        pins.a4.into_pull_up_input(), // SDA
+        pins.a5.into_pull_up_input(), // SCL
         100_000,
     );
 
-    // SH1107g 初期化ビルダー
-    let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-        //.with_address(0x3C) // 必要なら指定
-        .build();
+    // 画面を真っ白にするためのフレームバッファ生成
+    // SH1107Gは128x128までだけど、ここでは128x64で例示
+    const WIDTH: usize = 128;
+    const HEIGHT: usize = 64;
+    let buffer_size = WIDTH * HEIGHT / 8;
+    let mut framebuffer = [0xFFu8; buffer_size]; // 0xFF = 全ピクセルON
 
-    // 初期化コマンド列（例、実際は適宜修正）
-    let init_cmds: &[u8] = &[
-        0xAE, 0xAD, 0x8B, 0xA8, 0x7F, 0xD3, 0x60, 0x40,
-        0xD5, 0x51, 0xC0, 0xDA, 0x12, 0x81, 0x80, 0xD9,
-        0x22, 0xDB, 0x35, 0xA0, 0xA4, 0xA6, 0xAF,
-    ];
+    // ログにI2C送信バイト列を出す
+    logger.log_bytes("FRAMEBUFFER", &framebuffer);
 
-    for &cmd in init_cmds {
-        let res = display.send_cmd(cmd);
-        match res {
-            Ok(_) => {
-                logger.log_fmt(format_args!("✅ CMD 0x{:02X} sent OK\n", cmd));
-            }
-            Err(e) => {
-                logger.log_fmt(format_args!("❌ CMD 0x{:02X} send FAILED: {:?}\n", cmd, e));
-            }
-        }
+    // 実際にOLEDに送信（ページモードの例）
+    // コマンド送信例: Page Addressing Mode
+    let _ = i2c.write(OLED_ADDR, &[0x20, 0x02]);
+    logger.log_bytes("CMD", &[0x20, 0x02]);
+
+    // データ送信（0x40はGDDRAMデータの制御バイト）
+    let mut data_packet = [0u8; 17];
+    data_packet[0] = 0x40; // Co = 0, D/C# = 1
+    for chunk in framebuffer.chunks(16) {
+        data_packet[1..].copy_from_slice(chunk);
+        let _ = i2c.write(OLED_ADDR, &data_packet);
+        logger.log_bytes("DATA", &data_packet);
     }
 
-    // バッファを真っ白（全ビット1）で埋める
-    display.clear_buffer();
-    for b in display.buffer.iter_mut() {
-        *b = 0xFF;
-    }
+    Logger::log_fmt(&mut logger, format_args!("✅ White screen draw complete\n"));
 
-    // 画面に反映
-    display.flush().unwrap();
-
-    loop {
-        // 無限ループ
-    }
+    loop {}
 }

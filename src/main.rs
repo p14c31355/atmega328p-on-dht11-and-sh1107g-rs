@@ -33,10 +33,14 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
+    // シリアル初期化（57600bps）
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
+    writeln!(logger, "Start main").ok();
+
+    // I2C 初期化（SDA: A4, SCL: A5）
     let i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
@@ -44,30 +48,31 @@ fn main() -> ! {
         400_000,
     );
 
+    // SH1107G 初期化
     let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-        // .with_size(DisplaySize::Display128x128) ← 削除
         .build()
         .unwrap_or_else(|_| {
             writeln!(logger, "ERR: display init failed").ok();
-            panic!()
+            panic!();
         });
 
-    let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
+    writeln!(logger, "Display initialized").ok();
 
+    // 画面全体を白で塗りつぶす
+    let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
     let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 128));
 
-    if let Err(_) = rect.into_styled(white_style).draw(&mut display) {
-        writeln!(logger, "ERR: draw failed").ok();
-    }
+    rect.into_styled(white_style).draw(&mut display).unwrap();
 
-    if let Err(_) = display.flush() {
-        writeln!(logger, "ERR: flush failed").ok();
+    if let Err(e) = display.flush() {
+        writeln!(logger, "ERR: flush failed: {:?}", e).ok();
     } else {
         writeln!(logger, "OK: white screen drawn").ok();
     }
 
-    loop {}
+    loop {
+        // メインループ何もしない
+    }
 }
 
-// panic-halt の利用で panic_handler は不要
 use panic_halt as _;

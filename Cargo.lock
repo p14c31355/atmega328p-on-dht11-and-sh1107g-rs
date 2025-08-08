@@ -34,7 +34,7 @@ dependencies = [
  "dvcdbg",
  "embedded-dht-rs",
  "embedded-graphics",
- "embedded-hal 1.0.0",
+ "embedded-hal 0.2.7",
  "embedded-io",
  "heapless",
  "log",

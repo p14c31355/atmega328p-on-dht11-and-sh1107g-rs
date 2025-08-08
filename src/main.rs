@@ -10,10 +10,12 @@ use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyle},
     pixelcolor::BinaryColor,
     prelude::*,
-    text::Text,
+    text::Text, primitives::PrimitiveStyle,
+    primitives::{Rectangle},
 };
 
 use dvcdbg::logger::SerialLogger;
+use dvcdbg::scanner::scan_i2c;  // 追加
 use log::info;
 
 use nb::block;
@@ -44,15 +46,18 @@ fn main() -> ! {
 
     info!("Starting Arduino application...");
 
-    let i2c = arduino_hal::I2c::new(
+    let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         400_000,
     );
 
-    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build_logger().unwrap();
+    // ここでI2Cバススキャン実行
+    // scan_i2c(&mut i2c, &mut logger);
 
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build();
+    /*
     info!("Display driver built successfully.");
 
     display.init().unwrap();
@@ -65,10 +70,29 @@ fn main() -> ! {
         .unwrap();
 
     info!("Text 'Hello, World!' drawn to buffer.");
-    
+
     display.flush().unwrap();
 
     info!("Buffer flushed to display.");
 
     loop {}
+    */
+    display.init().unwrap();
+
+    // 白く塗りつぶすスタイル
+    let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
+
+    // 画面全体の矩形を作成
+    let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 64))
+        .into_styled(white_style);
+
+    // 画面に描画
+    rect.draw(&mut display).unwrap();
+
+    // ディスプレイに送信
+    display.flush().unwrap();
+
+    loop {
+        // 何もしないでループ
+    }
 }

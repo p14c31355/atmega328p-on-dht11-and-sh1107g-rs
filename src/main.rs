@@ -10,9 +10,9 @@ use embedded_graphics::{
 };
 
 use sh1107g_rs::{Sh1107gBuilder, DisplaySize};
-use dvcdbg::{log_bytes, logger::SerialLogger};
+use dvcdbg::{logger::SerialLogger, log_bytes};
 
-use embedded_hal::serial::Write;
+use embedded_hal::blocking::serial::Write;
 
 // `arduino-hal`のシリアルポートを`core::fmt::Write`に適合させるためのラッパー
 struct FmtWriteWrapper<W>(W);

@@ -20,23 +20,21 @@ use dvcdbg::logger::{Logger, SerialLogger};
 /// UARTをembedded-io::Writeに変換するラッパー
 pub struct UsartEmbeddedIo<W>(pub W);
 
-impl<W, E> EmbeddedWrite for UsartEmbeddedIo<W>
+impl<W> EmbeddedWrite for UsartEmbeddedIo<W>
 where
-    W: HalWrite<u8, Error = E>,
+    W: HalWrite<u8>,
 {
-    type Error = E;
-
-    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize, core::convert::Infallible> {
         for &b in buf {
-            block!(self.0.write(b))?;
+            block!(self.0.write(b)).unwrap();
         }
         Ok(buf.len())
     }
-
-    fn flush(&mut self) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<(), core::convert::Infallible> {
         Ok(())
     }
 }
+
 
 /// FmtWrite対応のラッパー
 pub struct FmtWriteWrapper<'a, W: EmbeddedWrite> {
@@ -85,7 +83,10 @@ fn main() -> ! {
     const WIDTH: usize = 128;
     const HEIGHT: usize = 64;
     let buffer_size = WIDTH * HEIGHT / 8;
-    let mut framebuffer = [0xFFu8; buffer_size]; // 0xFF = 全ピクセルON
+    let mut framebuffer = [0u8; 1024]; // 固定2048バイト例
+    for byte in framebuffer.iter_mut() {
+        *byte = 0xFF;
+    }
 
     // ログにI2C送信バイト列を出す
     logger.log_bytes("FRAMEBUFFER", &framebuffer);

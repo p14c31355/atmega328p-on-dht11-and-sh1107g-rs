@@ -5,13 +5,10 @@ use arduino_hal::prelude::*;
 use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
-    primitives::Rectangle,
-    primitives::PrimitiveStyle,
+    primitives::{Rectangle, PrimitiveStyle},
 };
 use sh1107g_rs::Sh1107gBuilder;
-use dvcdbg::logger::SerialLogger;
-use dvcdbg::log;
-use dvcdbg::logger;
+use dvcdbg::{log, logger::{self, SerialLogger, Logger}};
 
 use embedded_hal::serial::Write;
 use core::fmt::Write as FmtWrite;
@@ -40,7 +37,8 @@ fn main() -> ! {
     let mut serial_wrapper = FmtWriteWrapper(serial);
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
-    writeln!(logger, "Start main").ok();
+    // 内部の FmtWriteWrapper へ書き込みたい場合
+    writeln!(logger.writer_mut(), "Start main").ok();
 
     // I2C 初期化（SDA: A4, SCL: A5）
     let i2c = arduino_hal::I2c::new(
@@ -53,7 +51,7 @@ fn main() -> ! {
     // SH1107G 初期化
     let mut display = Sh1107gBuilder::new(i2c, &mut logger).build();
 
-    writeln!(logger, "Display initialized").ok();
+    log!(logger, "Display initialized");
 
     // 画面全体を白で塗りつぶす
     let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
@@ -62,13 +60,13 @@ fn main() -> ! {
     rect.into_styled(white_style).draw(&mut display).unwrap();
 
     if let Err(e) = display.flush() {
-        log!(logger, "ERR: flush failed: {:?}", e).ok();
+        log!(logger, "ERR: flush failed: {:?}", e);
     } else {
-        writeln!(logger, "OK: white screen drawn").ok();
+        log!(logger, "OK: white screen drawn");
     }
 
     loop {
-        // メインループ何もしない
+        // メインループは何もしない
     }
 }
 

@@ -3,8 +3,8 @@
 
 use arduino_hal::prelude::*;
 use arduino_hal::hal::port;
-use sh1107g_rs::{Sh1107g, DisplaySize};
-use dvcdbg::log_bytes;
+use sh1107g_rs::{Sh1107g, Sh1107gBuilder, DefaultLogger};
+use dvcdbg::log;
 use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
@@ -20,8 +20,11 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    // UART 初期化（9600bps）
+    // UART 初期化（57600bps）
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+
+    // ロガーを初期化
+    let mut logger = DefaultLogger::new(&mut serial);
 
     // I2C 初期化
     let i2c = arduino_hal::I2c::new(
@@ -31,12 +34,12 @@ fn main() -> ! {
         400_000,
     );
 
-    // SH1107G ディスプレイドライバ初期化
-    let mut display = Sh1107g::new(i2c, DisplaySize::Display128x128)
-        .init()
-        .unwrap_or_else(|_| {
-            log_bytes(b"ERR: display init failed\n", &mut serial).ok();
-            panic!()
+    // SH1107G ディスプレイドライバをビルダパターンで初期化
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger)
+        .build_logger()
+        .unwrap_or_else(|e| {
+            log!(&mut logger, "ERR: display init failed: {:?}", e);
+            panic!();
         });
 
     // 真っ白に塗りつぶすスタイル
@@ -48,15 +51,15 @@ fn main() -> ! {
     let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 128));
 
     // 描画
-    if let Err(_) = rect.into_styled(white_style).draw(&mut display) {
-        log_bytes(b"ERR: draw failed\n", &mut serial).ok();
+    if let Err(e) = rect.into_styled(white_style).draw(&mut display) {
+        log!(&mut logger, "ERR: draw failed: {:?}", e);
     }
 
     // バッファ送信
-    if let Err(_) = display.flush() {
-        log_bytes(b"ERR: flush failed\n", &mut serial).ok();
+    if let Err(e) = display.flush() {
+        log!(&mut logger, "ERR: flush failed: {:?}", e);
     } else {
-        log_bytes(b"OK: white screen drawn\n", &mut serial).ok();
+        log!(&mut logger, "OK: white screen drawn");
     }
 
     loop {}

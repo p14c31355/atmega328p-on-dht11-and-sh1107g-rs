@@ -79,17 +79,16 @@ fn main() -> ! {
     for &cmd in init_cmds {
     let res = display.send_cmd(cmd);
     let mut buf: heapless::String<64> = heapless::String::new();
+    use core::fmt::Write;
+
     match res {
         Ok(_) => {
-            use core::fmt::Write;
             let _ = write!(buf, "I2C CMD 0x{:02X} sent OK", cmd);
-            logger.log_i2c(buf.as_str(), Ok(()));
+            logger.log_i2c(buf.as_str(), Ok::<(), ()>(()));
         }
         Err(e) => {
-            use core::fmt::Write;
             let _ = write!(buf, "I2C CMD 0x{:02X} failed: {:?}", cmd, e);
-            // Errの型は () にして渡す（logger側の型推論ができるように）
-            logger.log_i2c(buf.as_str(), Err(()));
+            logger.log_i2c(buf.as_str(), Err::<(), ()>(()));
         }
     }
 }

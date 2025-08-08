@@ -23,7 +23,6 @@ log = "0.4.27"
 defmt = "1.0.1"
 defmt-rtt = "1.0.0"
 heapless = "0.8.0"
-sh1107 = "0.1.0"
 
 [dependencies.sh1107g-rs]
 path = "../sh1107g-rs"

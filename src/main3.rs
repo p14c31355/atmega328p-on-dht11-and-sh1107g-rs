@@ -13,7 +13,6 @@ use dvcdbg::logger::{Logger, SerialLogger};
 use dvcdbg::log;
 use core::fmt::Write;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
-use dvcdbg::scanner::scan_i2c;
 
 // arduino_hal::DefaultSerial を core::fmt::Write に適合させるラッパー
 struct SerialWriter<'a, W: EmbeddedHalSerialWrite<u8>> {
@@ -44,15 +43,12 @@ fn main() -> ! {
     let mut serial_writer = SerialWriter::new(&mut serial);
     let mut logger = SerialLogger::new(&mut serial_writer);
 
-    let mut i2c = arduino_hal::I2c::new( // i2c を可変にする
+    let i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         50000,
     );
-
-    // I2Cバスのスキャンを実行
-    scan_i2c(&mut i2c, &mut logger);
 
     let mut display: Sh1107g<
         arduino_hal::I2c,

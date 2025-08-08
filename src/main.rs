@@ -7,12 +7,11 @@ use panic_halt as _;
 
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::Rectangle;
-use embedded_graphics::style::PrimitiveStyle;
+// 修正版 import
+use embedded_hal::i2c::I2c; // blockingは不要
+use embedded_io::Write as EmbeddedWrite; // serialはembedded-ioで代替
+use embedded_graphics::primitives::{PrimitiveStyle, Rectangle};
 
-use embedded_hal::blocking::i2c::Write as I2cWrite;
-use embedded_io::Write as EmbeddedWrite;
-use embedded_hal::serial::Write as HalWrite;
 use nb::block;
 
 use dvcdbg::logger::{Logger, SerialLogger};

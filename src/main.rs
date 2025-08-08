@@ -7,21 +7,15 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
 
 use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
     pixelcolor::BinaryColor,
     prelude::*,
-    text::Text, primitives::PrimitiveStyle,
-    primitives::{Rectangle},
 };
 
 use dvcdbg::logger::SerialLogger;
-use dvcdbg::scanner::scan_i2c;  // 追加
-use log::info;
-
 use nb::block;
 
+// UART用の書き込みラッパー
 struct FmtWriteWrapper<W>(W);
-
 impl<W> core::fmt::Write for FmtWriteWrapper<W>
 where
     W: embedded_hal::serial::Write<u8>,
@@ -41,58 +35,32 @@ fn main() -> ! {
 
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = FmtWriteWrapper(serial);
-
     let mut logger = SerialLogger::new(&mut serial_wrapper);
-
-    info!("Starting Arduino application...");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
-        400_000,
+        100_000,
     );
 
-    // ここでI2Cバススキャン実行
-    // scan_i2c(&mut i2c, &mut logger);
+    // ドライバのビルド（logger付き）
+    let mut display = Sh1107gBuilder::new(i2c, &mut logger)
+        //.with_address(0x3C) // 必要ならアドレス指定
+        .build();
 
-    let mut display = Sh1107gBuilder::new(i2c, &mut logger).build();
-    /*
-    info!("Display driver built successfully.");
-
+    // 初期化コマンド送信
     display.init().unwrap();
+
+    // バッファを0x00でクリア
     display.clear_buffer();
 
-    let character_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-
-    Text::new("Hello, World!", Point::new(16, 64), character_style)
-        .draw(&mut display)
-        .unwrap();
-
-    info!("Text 'Hello, World!' drawn to buffer.");
-
+    // クリアしたバッファをディスプレイへ送信
     display.flush().unwrap();
 
-    info!("Buffer flushed to display.");
-
-    loop {}
-    */
-    display.init().unwrap();
-
-    // 白く塗りつぶすスタイル
-    let white_style = PrimitiveStyle::with_fill(BinaryColor::On);
-
-    // 画面全体の矩形を作成
-    let rect = Rectangle::new(Point::new(0, 0), Size::new(128, 64))
-        .into_styled(white_style);
-
-    // 画面に描画
-    rect.draw(&mut display).unwrap();
-
-    // ディスプレイに送信
-    display.flush().unwrap();
+    // ここまで来たら砂嵐ではなく真っ黒になるはず
 
     loop {
-        // 何もしないでループ
+        // 無限ループで停止
     }
 }

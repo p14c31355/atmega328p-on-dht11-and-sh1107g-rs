@@ -78,29 +78,27 @@ fn send_cmd<I2C, L>(i2c: &mut I2C, addr: u8, cmd: u8, logger: &mut L)
         I2C: embedded_hal::blocking::i2c::Write,
         L: Logger,
     {
-        // ページアドレス 0～7(128x64の例なので128x128なら0～15)
-        for page in 0..=7 {
-            // ページアドレス設定コマンド送信
-            let page_cmd = 0xB0 | (page & 0x0F);
-            send_cmd(i2c, addr, page_cmd, logger);
-            // カラムアドレスを0にセット (2バイトコマンドなので writeに2バイト送る)
-            let col_cmds = [0x00, 0x10];
-            if i2c.write(addr, &col_cmds).is_err() {
+        for page in 0..=15 {  // 128x128の場合は16ページ分
+            // ページアドレス設定 (コマンド)
+            let page_cmd = [0x00, 0xB0 | (page & 0x0F)];
+            if i2c.write(addr, &page_cmd).is_err() {
+                log!(logger, "Failed to set page address {}", page);
+            }
+            // カラムアドレス設定 0x00 と 0x10 の2バイトコマンド
+            let col_cmd = [0x00, 0x00, 0x10];
+            if i2c.write(addr, &col_cmd).is_err() {
                 log!(logger, "Failed to set column address");
             }
-
-            // データを128バイト送ってそのページのRAMを0クリア
-            let clear_data = [0x00u8; 128];
-            // 制御バイト0x40はデータ転送用
+            // データ送信 (128バイト分0x00クリア)
             let mut buf = [0u8; 129];
-            buf[0] = 0x40; // 制御バイト(データ転送)
-            buf[1..].copy_from_slice(&clear_data);
-
+            buf[0] = 0x40; // データ用制御バイト
+            for b in buf[1..].iter_mut() {
+                *b = 0x00;
+            }
             if i2c.write(addr, &buf).is_err() {
                 log!(logger, "Failed to clear page {}", page);
             }
         }
-
         log!(logger, "Display cleared");
     }
 

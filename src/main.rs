@@ -2,10 +2,10 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
-use dvcdbg::logger::{SerialLogger, Logger};
-use dvcdbg::log;
-use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
 use core::fmt::Write;
+use dvcdbg::log;
+use dvcdbg::logger::{Logger, SerialLogger};
+use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
 use panic_halt as _;
 
 use sh1107g_rs::Sh1107g;
@@ -45,33 +45,32 @@ fn main() -> ! {
         dp.TWI,
         pins.a4.into_pull_up_input(), // SDA
         pins.a5.into_pull_up_input(), // SCL
-        100_000, // 100kHz
+        100_000,                      // 100kHz
     );
 
     log!(&mut logger, "I2Cスキャン開始");
 
-    let mut found_addr = None;
-          for addr in 0x03..=0x77 {
-              if i2c.write(addr, &[]).is_ok() {
-                  log!(&mut logger, "Found device at 0x{:02X}", addr);
-                  if addr == 0x3C || addr == 0x3D {
-        log!(&mut logger, "SH1107G 初期化開始");
+    let mut found_addr: Option<u8> = None;
+    for addr in 0x03..=0x77 {
+        if i2c.write(addr, &[]).is_ok() {
+            log!(&mut logger, "Found device at 0x{:02X}", addr);
+            if addr == 0x3C || addr == 0x3D {
+                log!(&mut logger, "SH1107G 初期化開始");
 
-        let mut display = {
-            let builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
-            builder.build()
-        };
+                let mut display = {
+                    let builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
+                    builder.build()
+                };
 
-        log!(&mut logger, "build() 成功");
+                log!(&mut logger, "build() 成功");
 
-        if display.flush().is_ok() {
-            log!(&mut logger, "flush() 成功 - 画面クリア済み");
-        } else {
-            log!(&mut logger, "flush() 失敗");
+                if display.flush().is_ok() {
+                    log!(&mut logger, "flush() 成功 - 画面クリア済み");
+                } else {
+                    log!(&mut logger, "flush() 失敗");
+                }
+            }
         }
-      
-  }
-}
-          }
-          loop {}
+    }
+    loop {}
 }

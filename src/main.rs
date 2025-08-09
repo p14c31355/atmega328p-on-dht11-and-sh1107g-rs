@@ -51,38 +51,27 @@ fn main() -> ! {
     log!(&mut logger, "I2Cスキャン開始");
 
     let mut found_addr = None;
-    for addr in 0x03..=0x77 {
-        if i2c.write(addr, &[]).is_ok() {
-            log!(&mut logger, "Found device at 0x{:02X}", addr);
-            if addr == 0x3C || addr == 0x3D {
-                found_addr = Some(addr);
-                break;
-            }
-        }
-    }
-
-    if let Some(addr) = found_addr {
+          for addr in 0x03..=0x77 {
+              if i2c.write(addr, &[]).is_ok() {
+                  log!(&mut logger, "Found device at 0x{:02X}", addr);
+                  if addr == 0x3C || addr == 0x3D {
         log!(&mut logger, "SH1107G 初期化開始");
-        // 所有権を渡して初期化はここで1回だけ
-        // i2c所有権渡すのでmutは必要
-          let builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
 
-          let mut builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
-          let mut display = builder.build();
+        let mut display = {
+            let builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
+            builder.build()
+        };
 
-          log!(&mut logger, "build() 成功");
+        log!(&mut logger, "build() 成功");
 
-          // 必要なら手動で初期化呼ぶ（非同期なら違うかもですが）
-          // display.init().unwrap();
-
-          if display.flush().is_ok() {
-              log!(&mut logger, "flush() 成功");
-          } else {
-              log!(&mut logger, "flush() 失敗");
-          }
-          
-        // ここから display を使った描画ループなどに入る
-    }
-
-    loop {}
+        if display.flush().is_ok() {
+            log!(&mut logger, "flush() 成功 - 画面クリア済み");
+        } else {
+            log!(&mut logger, "flush() 失敗");
+        }
+      
   }
+}
+          }
+          loop {}
+}

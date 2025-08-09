@@ -43,7 +43,11 @@ fn send_cmd<I2C, L>(i2c: &mut I2C, addr: u8, cmd: u8, logger: &mut L)
     }
 
 
-    fn init_sh1107(i2c: &mut arduino_hal::I2c, addr: u8) {
+    fn init_sh1107<I2C, L>(i2c: &mut I2C, addr: u8, logger: &mut L)
+    where
+        I2C: embedded_hal::blocking::i2c::Write,
+        L: Logger,
+    {
         let cmds: [u8; 23] = [
             0xAE,       // Display OFF
             0xDC, 0x00, // Display start line
@@ -64,10 +68,42 @@ fn send_cmd<I2C, L>(i2c: &mut I2C, addr: u8, cmd: u8, logger: &mut L)
 
         let mut i = 0;
         while i < cmds.len() {
-            send_cmd(i2c, addr, cmds[i], &mut logger);
+            send_cmd(i2c, addr, cmds[i], logger);
             i += 1;
         }
     }
+
+    fn clear_display<I2C, L>(i2c: &mut I2C, addr: u8, logger: &mut L)
+    where
+        I2C: embedded_hal::blocking::i2c::Write,
+        L: Logger,
+    {
+        // ページアドレス 0～7(128x64の例なので128x128なら0～15)
+        for page in 0..=7 {
+            // ページアドレス設定コマンド送信
+            let page_cmd = 0xB0 | (page & 0x0F);
+            send_cmd(i2c, addr, page_cmd, logger);
+            // カラムアドレスを0にセット (2バイトコマンドなので writeに2バイト送る)
+            let col_cmds = [0x00, 0x10];
+            if i2c.write(addr, &col_cmds).is_err() {
+                log!(logger, "Failed to set column address");
+            }
+
+            // データを128バイト送ってそのページのRAMを0クリア
+            let clear_data = [0x00u8; 128];
+            // 制御バイト0x40はデータ転送用
+            let mut buf = [0u8; 129];
+            buf[0] = 0x40; // 制御バイト(データ転送)
+            buf[1..].copy_from_slice(&clear_data);
+
+            if i2c.write(addr, &buf).is_err() {
+                log!(logger, "Failed to clear page {}", page);
+            }
+        }
+
+        log!(logger, "Display cleared");
+    }
+
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -89,8 +125,6 @@ fn main() -> ! {
 
     log!(&mut logger, "I2Cスキャン開始");
 
-    init_sh1107(&mut i2c, addr);
-
     // スキャン
     for addr in 0x03..=0x77 {
         if i2c.write(addr, &[]).is_ok() {
@@ -99,7 +133,8 @@ fn main() -> ! {
             // SH1107G検出時
             if addr == 0x3C || addr == 0x3D {
                 log!(&mut logger, "SH1107G 初期化開始");
-                init_sh1107(&mut i2c, addr);
+                init_sh1107(&mut i2c, addr, &mut logger);
+                clear_display(&mut i2c, addr, &mut logger);
                 log!(&mut logger, "Init OK");
             }
         }

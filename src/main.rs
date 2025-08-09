@@ -40,7 +40,7 @@ fn main() -> ! {
     let mut serial_writer = SerialWriter::new(&mut serial);
     let mut logger = SerialLogger::new(&mut serial_writer);
     
-    let mut logger = SerialLogger::new(serial);
+    // let mut logger = SerialLogger::new(serial); // この行を削除
 
     // I2C初期化
     let mut i2c = arduino_hal::I2c::new(

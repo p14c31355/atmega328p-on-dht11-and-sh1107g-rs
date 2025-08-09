@@ -53,10 +53,25 @@ fn main() -> ! {
 
     // I2Cバスのスキャンを実行
     scan_i2c(&mut i2c, &mut logger);
-    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[
-    0xAD, 0x8B, 0xA8, 0x7F, 0xDC, 0xD5, 0x11, 0xC0, 0xDA, 0x12,
-    0x81, 0x2F, 0xD9, 0x22, 0xDB, 0x35, 0xA1, 0xA4, 0xA6,
-    ]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xAD]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x8B]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xA8]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x7F]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xDC]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xD5]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x11]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xC0]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xDA]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x12]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x81]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x2F]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xD9]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x22]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xDB]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0x35]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xA1]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xA4]);
+    scan_i2c_with_ctrl(&mut i2c, &mut logger, &[0xA6]);
 
     let mut display: Sh1107g<
         arduino_hal::I2c,

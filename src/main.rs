@@ -50,9 +50,13 @@ fn main() -> ! {
 
     log!(&mut logger, "I2Cスキャン開始");
 
-    fn send_cmd(i2c: &mut arduino_hal::I2c, addr: u8, cmd: u8) {
-        let buf = [0x00, cmd]; // 0x00 = コマンドモード
-        let _ = i2c.write(addr, &buf);
+    fn send_cmd(i2c: &mut arduino_hal::I2c, addr: u8, cmd: u8, logger: &mut impl Logger) {
+        let buf = [0x00, cmd];
+        if i2c.write(addr, &buf).is_ok() {
+            log!(logger, "Sent cmd 0x{:02X} to 0x{:02X}", cmd, addr);
+        } else {
+            log!(logger, "Failed cmd 0x{:02X} to 0x{:02X}", cmd, addr);
+        }
     }
 
     fn init_sh1107(i2c: &mut arduino_hal::I2c, addr: u8) {
@@ -76,7 +80,7 @@ fn main() -> ! {
 
         let mut i = 0;
         while i < cmds.len() {
-            send_cmd(i2c, addr, cmds[i]);
+            send_cmd(i2c, addr, cmds[i], &mut logger);
             i += 1;
         }
     }

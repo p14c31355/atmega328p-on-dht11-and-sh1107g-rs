@@ -1,81 +1,67 @@
 #![no_std]
 #![no_main]
-#![feature(abi_avr_interrupt)]
 
-use arduino_hal::default_serial;
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-};
-use panic_halt as _;
-use sh1107g_rs::{Sh1107g, DefaultLogger};
-use dvcdbg::logger::{Logger, SerialLogger};
+use arduino_hal::prelude::*;
+use dvcdbg::logger::SerialLogger;
 use dvcdbg::log;
-use core::fmt::Write;
-use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
-use dvcdbg::scanner::{scan_i2c, scan_i2c_with_ctrl, scan_init_sequence};
-
-// arduino_hal::DefaultSerial を core::fmt::Write に適合させるラッパー
-struct SerialWriter<'a, W: EmbeddedHalSerialWrite<u8>> {
-    writer: &'a mut W,
-}
-
-impl<'a, W: EmbeddedHalSerialWrite<u8>> SerialWriter<'a, W> {
-    fn new(writer: &'a mut W) -> Self {
-        Self { writer }
-    }
-}
-
-impl<'a, W: EmbeddedHalSerialWrite<u8>> Write for SerialWriter<'a, W> {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        for byte in s.bytes() {
-            nb::block!(self.writer.write(byte)).map_err(|_| core::fmt::Error)?;
-        }
-        Ok(())
-    }
-}
+use embedded_hal::i2c::I2c;
+use dvcdbg::logger::Logger;
+use panic_halt as _;
 
 #[arduino_hal::entry]
 fn main() -> ! {
+    // シリアルとロガー初期化
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let mut serial = default_serial!(dp, pins, 57600);
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut logger = SerialLogger::new(serial);
 
-    let mut serial_writer = SerialWriter::new(&mut serial);
-    let mut logger = SerialLogger::new(&mut serial_writer);
-
-    let mut i2c = arduino_hal::I2c::new( // i2c を可変にする
+    // I2C初期化
+    let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(),
-        pins.a5.into_pull_up_input(),
-        50000,
+        pins.a4.into_pull_up_input(), // SDA
+        pins.a5.into_pull_up_input(), // SCL
+        100_000, // 100kHz
     );
 
-    // I2Cバスのスキャンを実行
-    scan_i2c(&mut i2c, &mut logger);
-    scan_init_sequence(&mut i2c, &mut logger, &[
-    0xAD, 0x8B, 0xA8, 0x7F, 0xDC, 0xD5, 0x11, 0xC0, 0xDA, 0x12,
-    0x81, 0x2F, 0xD9, 0x22, 0xDB, 0x35, 0xA1, 0xA4, 0xA6,]);
-    
-    let mut display: Sh1107g<
-        arduino_hal::I2c,
-        _,
-    > = Sh1107g::new(i2c, 0x3C, Some(&mut logger));
+    log!(&mut logger, "I2Cスキャン開始");
 
-    // log! マクロの呼び出しを display.with_logger でラップ
-    display.with_logger(|logger_ref| log!(logger_ref, "Initializing..."));
+    // スキャン
+    for addr in 0x03..=0x77 {
+        if i2c.write(addr, &[]).is_ok() {
+            log!(&mut logger, "Found device at 0x{:02X}", addr);
 
-    display.init().unwrap();
-    display.clear(BinaryColor::Off).unwrap();
+            // 見つけたデバイスに SH1107G 初期化コマンド列を送信
+            if addr == 0x3C || addr == 0x3D {
+                log!(&mut logger, "SH1107G 初期化開始");
 
-    display.with_logger(|logger_ref| log!(logger_ref, "Display initialized and cleared."));
+                let init_cmds: [u8; 24] = [
+                    0x00, // Control byte for command
+                    0xAE, // Display OFF
+                    0xDC, 0x00, // Display start line = 0
+                    0x81, 0x2F, // Contrast
+                    0x20, // Memory addressing mode: page
+                    0xA0, // Segment remap normal
+                    0xC0, // Common output scan direction normal
+                    0xA4, // Entire display ON from RAM
+                    0xA6, // Normal display
+                    0xA8, 0x7F, // Multiplex ratio 128
+                    0xD3, 0x60, // Display offset
+                    0xD5, 0x51, // Oscillator frequency
+                    0xD9, 0x22, // Pre-charge period
+                    0xDB, 0x35, // VCOM deselect level
+                    0xAD, 0x8A, // DC-DC control
+                    0xAF,       // Display ON
+                ];
 
-    display.clear(BinaryColor::On).unwrap();
-    display.flush().unwrap();
-
-    display.with_logger(|logger_ref| log!(logger_ref, "Display filled with white."));
-
-    loop {
-        // 無限ループ
+                if let Err(e) = i2c.write(addr, &init_cmds) {
+                    log!(&mut logger, "Init failed: {:?}", e);
+                } else {
+                    log!(&mut logger, "Init OK");
+                }
+            }
+        }
     }
+
+    loop {}
 }

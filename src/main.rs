@@ -2,17 +2,40 @@
 #![no_main]
 #![feature(abi_avr_interrupt)]
 
-use arduino_hal::prelude::*;
-use core::fmt::Write;
-use dvcdbg::log;
-use dvcdbg::logger::{Logger, SerialLogger};
-use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
+use arduino_hal::default_serial;
+use embedded_graphics::{
+    pixelcolor::BinaryColor,
+    prelude::*,
+};
 use panic_halt as _;
+use dvcdbg::logger::{Logger, SerialLogger};
+use dvcdbg::log;
+use core::fmt::Write;
+use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
+use embedded_hal::blocking::i2c::Write as I2cWrite; // embedded_hal::blocking::i2c::Write に変更
+use dvcdbg::scanner::scan_i2c;
+use heapless::Vec;
 
-use sh1107g_rs::Sh1107g;
-use sh1107g_rs::Sh1107gBuilder;
-use embedded_graphics::pixelcolor::BinaryColor; // BinaryColor をインポート
+// SH1107G の初期化コマンド (データシートから抜粋)
+const SH1107G_INIT_CMDS: &[u8] = &[
+    0xAE, // Display OFF
+    0xDC, 0x00, // Display start line = 0
+    0x81, 0x2F, // Contrast
+    0x20, // Memory addressing mode: page
+    0xA0, // Segment remap normal
+    0xC0, // Common output scan direction normal
+    0xA4, // Entire display ON from RAM
+    0xA6, // Normal display
+    0xA8, 0x7F, // Multiplex ratio 128
+    0xD3, 0x60, // Display offset
+    0xD5, 0x51, // Oscillator frequency
+    0xD9, 0x22, // Pre-charge period
+    0xDB, 0x35, // VCOM deselect level
+    0xAD, 0x8A, // DC-DC control
+    0xAF,       // Display ON
+];
 
+// arduino_hal::DefaultSerial を core::fmt::Write に適合させるラッパー
 struct SerialWriter<'a, W: EmbeddedHalSerialWrite<u8>> {
     writer: &'a mut W,
 }
@@ -34,28 +57,26 @@ impl<'a, W: EmbeddedHalSerialWrite<u8>> Write for SerialWriter<'a, W> {
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    // シリアルとロガー初期化
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut serial = default_serial!(dp, pins, 57600);
 
     let mut serial_writer = SerialWriter::new(&mut serial);
     let mut logger = SerialLogger::new(&mut serial_writer);
 
-    // I2C初期化
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(), // SDA
-        pins.a5.into_pull_up_input(), // SCL
-        50000,                      // 50kHz
+        pins.a4.into_pull_up_input(),
+        pins.a5.into_pull_up_input(),
+        50000,
     );
 
-    log!(&mut logger, "I2Cスキャン開始");
+    // I2Cバスのスキャンを実行
+    scan_i2c(&mut i2c, &mut logger);
 
-    // スキャン
     let mut found_sh1107g_addr: Option<u8> = None;
     for addr in 0x03..=0x77 {
-        if i2c.write(addr, &[]).is_ok() {
+        if I2cWrite::write(&mut i2c, addr, &[]).is_ok() {
             log!(&mut logger, "Found device at 0x{:02X}", addr);
             if addr == 0x3C || addr == 0x3D {
                 found_sh1107g_addr = Some(addr);
@@ -67,23 +88,38 @@ fn main() -> ! {
     if let Some(addr) = found_sh1107g_addr {
         log!(&mut logger, "SH1107G 初期化開始 (アドレス: 0x{:02X})", addr);
 
-        let mut display = Sh1107gBuilder::new(i2c, &mut logger)
-            .with_address(addr)
-            .build()
-            .unwrap(); // build() の結果を unwrap()
+        // SH1107G 初期化コマンドを送信
+        // コントロールバイト 0x00 はコマンド続き送信の意味
+        let mut payload = Vec::<u8, 64>::new();
+        payload.push(0x00).unwrap();
+        payload.extend_from_slice(SH1107G_INIT_CMDS).unwrap();
 
-        display.with_logger(|logger_ref| log!(logger_ref, "Display build() 成功"));
+        if let Err(e) = I2cWrite::write(&mut i2c, addr, &payload) {
+            log!(&mut logger, "Init failed: {:?}", e);
+        } else {
+            log!(&mut logger, "Init OK");
 
-        display.init().unwrap(); // init() を呼び出す
-        display.clear(BinaryColor::Off).unwrap(); // 初期化時に画面をクリア
+            // 画面を真っ白に塗りつぶす (手動で実装)
+            // SH1107G はページアドレス指定とカラムアドレス指定が必要
+            // 128x128ディスプレイの場合、16ページ (0-15)
+            // 各ページは8行、128カラム
+            for page in 0..16 {
+                // ページアドレスセット (0xB0 + page)
+                I2cWrite::write(&mut i2c, addr, &[0x00, 0xB0 + page as u8]).unwrap();
+                // カラムアドレスセット (0x00 + lower_nibble, 0x10 + upper_nibble)
+                I2cWrite::write(&mut i2c, addr, &[0x00, 0x10]).unwrap();
 
-        display.with_logger(|logger_ref| log!(logger_ref, "Display initialized and cleared."));
-
-        // 画面を真っ白に塗りつぶす
-        display.clear(BinaryColor::On).unwrap();
-        display.flush().unwrap();
-
-        display.with_logger(|logger_ref| log!(logger_ref, "Display filled with white."));
+                // ページデータを送信 (128バイト)
+                // コントロールバイト 0x40 はデータ送信の意味
+                let mut page_data = Vec::<u8, 129>::new();
+                page_data.push(0x40).unwrap(); // データ送信コントロールバイト
+                for _ in 0..128 {
+                    page_data.push(0xFF).unwrap(); // 全て白 (0xFF)
+                }
+                I2cWrite::write(&mut i2c, addr, &page_data).unwrap();
+            }
+            log!(&mut logger, "Display filled with white.");
+        }
     } else {
         log!(&mut logger, "SH1107G ディスプレイが見つかりませんでした。");
     }

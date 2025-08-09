@@ -64,24 +64,25 @@ fn main() -> ! {
     if let Some(addr) = found_addr {
         log!(&mut logger, "SH1107G 初期化開始");
         // 所有権を渡して初期化はここで1回だけ
-        let mut builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
-        let mut display = match builder.build_logger() {
-            Ok(display) => display,
-            Err(e) => {
-                log!(&mut logger, "初期化失敗: {:?}", e);
-                // 必要なら処理
-                loop {}
-            }
-        };
+        // i2c所有権渡すのでmutは必要
+          let builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
 
-        log!(&mut logger, "init() 成功");
+          let mut display = match builder.build_logger() {
+              Ok(display) => display,
+              Err(e) => {
+                  log!(&mut logger, "初期化失敗: {:?}", e);
+                  loop {}
+              }
+          };
 
-        if display.flush().is_ok() {
-            log!(&mut logger, "flush() 成功 - 画面クリア済み");
-        } else {
-            log!(&mut logger, "flush() 失敗");
-        }
+          log!(&mut logger, "init() 成功");
 
+          if display.flush().is_ok() {
+              log!(&mut logger, "flush() 成功 - 画面クリア済み");
+          } else {
+              log!(&mut logger, "flush() 失敗");
+          }
+          
         // ここから display を使った描画ループなどに入る
     }
 

@@ -39,8 +39,6 @@ fn main() -> ! {
 
     let mut serial_writer = SerialWriter::new(&mut serial);
     let mut logger = SerialLogger::new(&mut serial_writer);
-    
-    // let mut logger = SerialLogger::new(serial); // この行を削除
 
     // I2C初期化
     let mut i2c = arduino_hal::I2c::new(
@@ -52,39 +50,47 @@ fn main() -> ! {
 
     log!(&mut logger, "I2Cスキャン開始");
 
+    fn send_cmd(i2c: &mut arduino_hal::I2c, addr: u8, cmd: u8) {
+        let buf = [0x00, cmd]; // 0x00 = コマンドモード
+        let _ = i2c.write(addr, &buf);
+    }
+
+    fn init_sh1107(i2c: &mut arduino_hal::I2c, addr: u8) {
+        let cmds: [u8; 23] = [
+            0xAE,       // Display OFF
+            0xDC, 0x00, // Display start line
+            0x81, 0x2F, // Contrast
+            0x20,       // Page addressing mode
+            0xA0,       // Segment remap normal
+            0xC0,       // COM scan dir normal
+            0xA4,       // Display from RAM
+            0xA6,       // Normal display
+            0xA8, 0x7F, // Multiplex ratio
+            0xD3, 0x60, // Display offset
+            0xD5, 0x51, // Oscillator freq
+            0xD9, 0x22, // Pre-charge
+            0xDB, 0x35, // VCOM level
+            0xAD, 0x8A, // DC-DC control
+            0xAF,       // Display ON
+        ];
+
+        let mut i = 0;
+        while i < cmds.len() {
+            send_cmd(i2c, addr, cmds[i]);
+            i += 1;
+        }
+    }
+
     // スキャン
     for addr in 0x03..=0x77 {
         if i2c.write(addr, &[]).is_ok() {
             log!(&mut logger, "Found device at 0x{:02X}", addr);
 
-            // 見つけたデバイスに SH1107G 初期化コマンド列を送信
+            // SH1107G検出時
             if addr == 0x3C || addr == 0x3D {
                 log!(&mut logger, "SH1107G 初期化開始");
-
-                let init_cmds: [u8; 24] = [
-                    0x00, // Control byte for command
-                    0xAE, // Display OFF
-                    0xDC, 0x00, // Display start line = 0
-                    0x81, 0x2F, // Contrast
-                    0x20, // Memory addressing mode: page
-                    0xA0, // Segment remap normal
-                    0xC0, // Common output scan direction normal
-                    0xA4, // Entire display ON from RAM
-                    0xA6, // Normal display
-                    0xA8, 0x7F, // Multiplex ratio 128
-                    0xD3, 0x60, // Display offset
-                    0xD5, 0x51, // Oscillator frequency
-                    0xD9, 0x22, // Pre-charge period
-                    0xDB, 0x35, // VCOM deselect level
-                    0xAD, 0x8A, // DC-DC control
-                    0xAF,       // Display ON
-                ];
-
-                if let Err(e) = i2c.write(addr, &init_cmds) {
-                    log!(&mut logger, "Init failed: {:?}", e);
-                } else {
-                    log!(&mut logger, "Init OK");
-                }
+                init_sh1107(&mut i2c, addr);
+                log!(&mut logger, "Init OK");
             }
         }
     }

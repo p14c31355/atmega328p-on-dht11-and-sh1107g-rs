@@ -29,28 +29,7 @@ impl<'a, W: EmbeddedHalSerialWrite<u8>> Write for SerialWriter<'a, W> {
     }
 }
 
-
-#[arduino_hal::entry]
-fn main() -> ! {
-    // シリアルとロガー初期化
-    let dp = arduino_hal::Peripherals::take().unwrap();
-    let pins = arduino_hal::pins!(dp);
-    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-
-    let mut serial_writer = SerialWriter::new(&mut serial);
-    let mut logger = SerialLogger::new(&mut serial_writer);
-
-    // I2C初期化
-    let mut i2c = arduino_hal::I2c::new(
-        dp.TWI,
-        pins.a4.into_pull_up_input(), // SDA
-        pins.a5.into_pull_up_input(), // SCL
-        100_000, // 100kHz
-    );
-
-    log!(&mut logger, "I2Cスキャン開始");
-
-    fn send_cmd<I2C, L>(i2c: &mut I2C, addr: u8, cmd: u8, logger: &mut L)
+fn send_cmd<I2C, L>(i2c: &mut I2C, addr: u8, cmd: u8, logger: &mut L)
     where
         I2C: embedded_hal::blocking::i2c::Write,
         L: Logger,
@@ -89,6 +68,28 @@ fn main() -> ! {
             i += 1;
         }
     }
+
+#[arduino_hal::entry]
+fn main() -> ! {
+    // シリアルとロガー初期化
+    let dp = arduino_hal::Peripherals::take().unwrap();
+    let pins = arduino_hal::pins!(dp);
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+
+    let mut serial_writer = SerialWriter::new(&mut serial);
+    let mut logger = SerialLogger::new(&mut serial_writer);
+
+    // I2C初期化
+    let mut i2c = arduino_hal::I2c::new(
+        dp.TWI,
+        pins.a4.into_pull_up_input(), // SDA
+        pins.a5.into_pull_up_input(), // SCL
+        100_000, // 100kHz
+    );
+
+    log!(&mut logger, "I2Cスキャン開始");
+
+    init_sh1107(&mut i2c, addr);
 
     // スキャン
     for addr in 0x03..=0x77 {

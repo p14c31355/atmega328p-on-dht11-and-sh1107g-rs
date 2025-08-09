@@ -2,14 +2,15 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
-use dvcdbg::logger::SerialLogger;
+use dvcdbg::logger::{SerialLogger, Logger};
 use dvcdbg::log;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
 use core::fmt::Write;
-use dvcdbg::logger::Logger;
 use panic_halt as _;
 
-// arduino_hal::DefaultSerial を core::fmt::Write に適合させるラッパー
+use sh1107g_rs::Sh1107g;
+use sh1107g_rs::Sh1107gBuilder;
+
 struct SerialWriter<'a, W: EmbeddedHalSerialWrite<u8>> {
     writer: &'a mut W,
 }
@@ -28,80 +29,6 @@ impl<'a, W: EmbeddedHalSerialWrite<u8>> Write for SerialWriter<'a, W> {
         Ok(())
     }
 }
-
-fn send_cmd<I2C, L>(i2c: &mut I2C, addr: u8, cmd: u8, logger: &mut L)
-    where
-        I2C: embedded_hal::blocking::i2c::Write,
-        L: Logger,
-    {
-        let buf = [0x00, cmd];
-        if i2c.write(addr, &buf).is_ok() {
-            log!(logger, "Sent cmd 0x{:02X} to 0x{:02X}", cmd, addr);
-        } else {
-            log!(logger, "Failed cmd 0x{:02X} to 0x{:02X}", cmd, addr);
-        }
-    }
-
-
-    fn init_sh1107<I2C, L>(i2c: &mut I2C, addr: u8, logger: &mut L)
-    where
-        I2C: embedded_hal::blocking::i2c::Write,
-        L: Logger,
-    {
-        let cmds: [u8; 23] = [
-            0xAE,       // Display OFF
-            0xDC, 0x00, // Display start line
-            0x81, 0x2F, // Contrast
-            0x20,       // Page addressing mode
-            0xA0,       // Segment remap normal
-            0xC0,       // COM scan dir normal
-            0xA4,       // Display from RAM
-            0xA6,       // Normal display
-            0xA8, 0x7F, // Multiplex ratio
-            0xD3, 0x60, // Display offset
-            0xD5, 0x51, // Oscillator freq
-            0xD9, 0x22, // Pre-charge
-            0xDB, 0x35, // VCOM level
-            0xAD, 0x8A, // DC-DC control
-            0xAF,       // Display ON
-        ];
-
-        let mut i = 0;
-        while i < cmds.len() {
-            send_cmd(i2c, addr, cmds[i], logger);
-            i += 1;
-        }
-    }
-
-    fn clear_display<I2C, L>(i2c: &mut I2C, addr: u8, logger: &mut L)
-    where
-        I2C: embedded_hal::blocking::i2c::Write,
-        L: Logger,
-    {
-        for page in 0..=15 {  // 128x128の場合は16ページ分
-            // ページアドレス設定 (コマンド)
-            let page_cmd = [0x00, 0xB0 | (page & 0x0F)];
-            if i2c.write(addr, &page_cmd).is_err() {
-                log!(logger, "Failed to set page address {}", page);
-            }
-            // カラムアドレス設定 0x00 と 0x10 の2バイトコマンド
-            let col_cmd = [0x00, 0x00, 0x10];
-            if i2c.write(addr, &col_cmd).is_err() {
-                log!(logger, "Failed to set column address");
-            }
-            // データ送信 (128バイト分0x00クリア)
-            let mut buf = [0u8; 129];
-            buf[0] = 0x40; // データ用制御バイト
-            for b in buf[1..].iter_mut() {
-                *b = 0x00;
-            }
-            if i2c.write(addr, &buf).is_err() {
-                log!(logger, "Failed to clear page {}", page);
-            }
-        }
-        log!(logger, "Display cleared");
-    }
-
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -123,20 +50,34 @@ fn main() -> ! {
 
     log!(&mut logger, "I2Cスキャン開始");
 
-    // スキャン
     for addr in 0x03..=0x77 {
         if i2c.write(addr, &[]).is_ok() {
             log!(&mut logger, "Found device at 0x{:02X}", addr);
 
-            // SH1107G検出時
             if addr == 0x3C || addr == 0x3D {
                 log!(&mut logger, "SH1107G 初期化開始");
-                init_sh1107(&mut i2c, addr, &mut logger);
-                clear_display(&mut i2c, addr, &mut logger);
-                log!(&mut logger, "Init OK");
+
+                let mut builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
+                  let mut display = match builder.build_logger() {
+                      Ok(display) => display,
+                      Err(e) => {
+                          log!(&mut logger, "初期化失敗: {:?}", e);
+                          continue; // or break
+                      }
+                  };
+
+                  log!(&mut logger, "init() 成功");
+
+                  if display.flush().is_ok() {
+                      log!(&mut logger, "flush() 成功 - 画面クリア済み");
+                  } else {
+                      log!(&mut logger, "flush() 失敗");
+                  }
+
+                break; // 最初の1台だけ初期化する場合
             }
+            
         }
     }
-
     loop {}
-}
+  }

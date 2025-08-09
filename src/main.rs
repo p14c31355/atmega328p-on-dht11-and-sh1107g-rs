@@ -67,18 +67,16 @@ fn main() -> ! {
         // i2c所有権渡すのでmutは必要
           let builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
 
-          let mut display = match builder.build_logger() {
-              Ok(display) => display,
-              Err(e) => {
-                  log!(&mut logger, "初期化失敗: {:?}", e);
-                  loop {}
-              }
-          };
+          let mut builder = Sh1107gBuilder::new(i2c, &mut logger).with_address(addr);
+          let mut display = builder.build();
 
-          log!(&mut logger, "init() 成功");
+          log!(&mut logger, "build() 成功");
+
+          // 必要なら手動で初期化呼ぶ（非同期なら違うかもですが）
+          // display.init().unwrap();
 
           if display.flush().is_ok() {
-              log!(&mut logger, "flush() 成功 - 画面クリア済み");
+              log!(&mut logger, "flush() 成功");
           } else {
               log!(&mut logger, "flush() 失敗");
           }

@@ -8,32 +8,11 @@ use embedded_graphics::{
     prelude::*,
 };
 use panic_halt as _;
+use sh1107g_rs::{Sh1107g, DefaultLogger};
 use dvcdbg::logger::{Logger, SerialLogger};
 use dvcdbg::log;
 use core::fmt::Write;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
-use embedded_hal::blocking::i2c::Write as I2cWrite; // embedded_hal::blocking::i2c::Write に変更
-use dvcdbg::scanner::scan_i2c;
-use heapless::Vec;
-
-// SH1107G の初期化コマンド (データシートから抜粋)
-const SH1107G_INIT_CMDS: &[u8] = &[
-    0xAE, // Display OFF
-    0xDC, 0x00, // Display start line = 0
-    0x81, 0x2F, // Contrast
-    0x20, // Memory addressing mode: page
-    0xA0, // Segment remap normal
-    0xC0, // Common output scan direction normal
-    0xA4, // Entire display ON from RAM
-    0xA6, // Normal display
-    0xA8, 0x7F, // Multiplex ratio 128
-    0xD3, 0x60, // Display offset
-    0xD5, 0x51, // Oscillator frequency
-    0xD9, 0x22, // Pre-charge period
-    0xDB, 0x35, // VCOM deselect level
-    0xAD, 0x8A, // DC-DC control
-    0xAF,       // Display ON
-];
 
 // arduino_hal::DefaultSerial を core::fmt::Write に適合させるラッパー
 struct SerialWriter<'a, W: EmbeddedHalSerialWrite<u8>> {
@@ -64,65 +43,32 @@ fn main() -> ! {
     let mut serial_writer = SerialWriter::new(&mut serial);
     let mut logger = SerialLogger::new(&mut serial_writer);
 
-    let mut i2c = arduino_hal::I2c::new(
+    let i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         50000,
     );
 
-    // I2Cバスのスキャンを実行
-    scan_i2c(&mut i2c, &mut logger);
+    let mut display: Sh1107g<
+        arduino_hal::I2c,
+        _,
+    > = Sh1107g::new(i2c, 0x3C, Some(&mut logger));
 
-    let mut found_sh1107g_addr: Option<u8> = None;
-    for addr in 0x03..=0x77 {
-        if I2cWrite::write(&mut i2c, addr, &[]).is_ok() {
-            log!(&mut logger, "Found device at 0x{:02X}", addr);
-            if addr == 0x3C || addr == 0x3D {
-                found_sh1107g_addr = Some(addr);
-                break; // SH1107Gが見つかったらスキャンを終了
-            }
-        }
+    // log! マクロの呼び出しを display.with_logger でラップ
+    display.with_logger(|logger_ref| log!(logger_ref, "Initializing..."));
+
+    display.init().unwrap();
+    display.clear(BinaryColor::Off).unwrap();
+
+    display.with_logger(|logger_ref| log!(logger_ref, "Display initialized and cleared."));
+
+    display.clear(BinaryColor::On).unwrap();
+    display.flush().unwrap();
+
+    display.with_logger(|logger_ref| log!(logger_ref, "Display filled with white."));
+
+    loop {
+        // 無限ループ
     }
-
-    if let Some(addr) = found_sh1107g_addr {
-        log!(&mut logger, "SH1107G 初期化開始 (アドレス: 0x{:02X})", addr);
-
-        // SH1107G 初期化コマンドを送信
-        // コントロールバイト 0x00 はコマンド続き送信の意味
-        let mut payload = Vec::<u8, 64>::new();
-        payload.push(0x00).unwrap();
-        payload.extend_from_slice(SH1107G_INIT_CMDS).unwrap();
-
-        if let Err(e) = I2cWrite::write(&mut i2c, addr, &payload) {
-            log!(&mut logger, "Init failed: {:?}", e);
-        } else {
-            log!(&mut logger, "Init OK");
-
-            // 画面を真っ白に塗りつぶす (手動で実装)
-            // SH1107G はページアドレス指定とカラムアドレス指定が必要
-            // 128x128ディスプレイの場合、16ページ (0-15)
-            // 各ページは8行、128カラム
-            for page in 0..16 {
-                // ページアドレスセット (0xB0 + page)
-                I2cWrite::write(&mut i2c, addr, &[0x00, 0xB0 + page as u8]).unwrap();
-                // カラムアドレスセット (0x00 + lower_nibble, 0x10 + upper_nibble)
-                I2cWrite::write(&mut i2c, addr, &[0x00, 0x10]).unwrap();
-
-                // ページデータを送信 (128バイト)
-                // コントロールバイト 0x40 はデータ送信の意味
-                let mut page_data = Vec::<u8, 129>::new();
-                page_data.push(0x40).unwrap(); // データ送信コントロールバイト
-                for _ in 0..128 {
-                    page_data.push(0xFF).unwrap(); // 全て白 (0xFF)
-                }
-                I2cWrite::write(&mut i2c, addr, &page_data).unwrap();
-            }
-            log!(&mut logger, "Display filled with white.");
-        }
-    } else {
-        log!(&mut logger, "SH1107G ディスプレイが見つかりませんでした。");
-    }
-
-    loop {}
 }

@@ -1,0 +1,532 @@
+🔍 Scanning I2C bus...
+✅ Found device at 0x3C
+🛑 I2C scan complete.
+🔍 Scanning I2C bus with init sequence: [7C, DA, 5B, B5, F4, 60, E3, 9D, F7, 9B, 81, DB, B7, 3A, E7, CD, A2, CF, D6, DE, FA, AB, 2D, FF, CE, 2A, 47, F9, 3D, DF, DF, 57, 3B, 44, BF, 8D, 9F, DB, 7E, 7E, FF, CB, 7E, 7D, FE, 77, BD, F6, 66, 78, C1, 9A, FB, B8, 3E, 9F, 9C, 7B, E6, AE, 2B, 7F, 12, 7F, B7, BE, B7, 37, F2, 05, 7D, F1, 6B, 23, 25, F5, 1F, F7, B6, 7B, E4, 5B, D3, 6D, BF, 33, FB, FE, 39, 5B, CD, EA, FF, 8E, 72, 1F, E7, 77, EF, 92, 17, FA, A9, 31, 3E, BC, A8, F5, 8E, EE, 42, D6, 7E, FE, C6, 7B, CD, 9F, FD, EE, D7, BB, 7B, FA, 17, D2, 3A, 79, 7A, D7, BA, CF, 7C, FD, DA, 72, 72, 87, CE, 4C, 3C, EF, D0, 3F, FC, 64, 7F, DD, DA, C9, 7E, BB, BF, 83, A2, 3E, 35, AF, B3, F7, ED, 16, EF, BF, 8F, BA, 6C, FC, 7C, C2, A0, 2F, 47, 2C, FE, F9, 5C, B3, 4F, 43, F7, 5D, 65, 9A, 1E, ED, 27, 10, 9C, C2, DD, DA, 6B, 23, 7B, 81, FC, FE, CD, FF, 9B, AE, 5A, E7, E2, 7B, F7, 97, D4, 3B, 50, 3F, DA, FF, EB, FB, 6E, FF, F6, 2D, 5B, B4, 01, 33, 30, 00, 00, 00, 0D, F9, 15, F2, 01, 00, 00, 02, 00, 01, 0F, 61, 00, 00, 00, 01, FF, 00, 01, 00, 14, 0D, 02, 00, 00, 00, 00, ED, 20, 00, A7, 0E, 02, 00, 01]
+→ Testing command 0x7C
+��� Found device at 0x3C responding to command 0x7C
+→ Testing command 0xDA
+✅ Found device at 0x3C responding to command 0xDA
+→ Testing command 0x5B
+✅ Found device at 0x3C responding to command 0x5B
+→ Testing command 0xB5
+✅ Found device at 0x3C responding to command 0xB5
+→ Testing command 0xF4
+✅ Found device at 0x3C responding to command 0xF4
+→ Testing command 0x60
+✅ Found device at 0x3C responding to command 0x60
+→ Testing command 0xE3
+✅ Found device at 0x3C responding to command 0xE3
+→ Testing command 0x9D
+�� Found device at 0x3C responding to command 0x9D
+→ Testing command 0xF7
+✅ Found device at 0x3C responding to command 0xF7
+→ Testing command 0x9B
+✅ Found device at 0x3C responding to command 0x9B
+→ Testing command 0x81
+✅ Found device at 0x3C responding to command 0x81
+�� Testing command 0xDB
+✅ Found device at 0x3C responding to command 0xDB
+→ Testing command 0xB7
+✅ Found device at 0x3C responding to command 0xB7
+→ Testing command 0x3A
+✅ Found device at 0x3C responding to command 0x3A
+→ Testing command 0xE7
+✅ Found device at 0x3C responding to command 0xE7
+→ Testing command 0xCD
+✅ Found device at 0x3C responding to command 0xCD
+→ Testing command 0xA2
+✅ Found device at 0x3C responding to command 0xA2
+→ Testing command 0xCF
+✅ Found device at 0x3C responding to command 0xCF
+→ Testing command 0xD6
+��� Found device at 0x3C responding to command 0xD6
+→ Testing command 0xDE
+✅ Found device at 0x3C responding to command 0xDE
+→ Testing command 0xFA
+✅ Found device at 0x3C responding to command 0xFA
+→ Testing command 0xAB
+✅ Found device at 0x3C responding to command 0xAB
+��� Testing command 0x2D
+✅ Found device at 0x3C responding to command 0x2D
+→ Testing command 0xFF
+✅ Found device at 0x3C responding to command 0xFF
+→ Testing command 0xCE
+✅ Found device at 0x3C responding to command 0xCE
+→ Testing command 0x2A
+�� Found device at 0x3C responding to command 0x2A
+→ Testing command 0x47
+✅ Found device at 0x3C responding to command 0x47
+→ Testing command 0xF9
+✅ Found device at 0x3C responding to command 0xF9
+→ Testing command 0x3D
+✅ Found device at 0x3C responding to command 0x3D
+�� Testing command 0xDF
+✅ Found device at 0x3C responding to command 0xDF
+→ Testing command 0xDF
+✅ Found device at 0x3C responding to command 0xDF
+→ Testing command 0x57
+✅ Found device at 0x3C responding to command 0x57
+→ Testing command 0x3B
+✅ Found device at 0x3C responding to command 0x3B
+→ Testing command 0x44
+✅ Found device at 0x3C responding to command 0x44
+→ Testing command 0xBF
+✅ Found device at 0x3C responding to command 0xBF
+→ Testing command 0x8D
+✅ Found device at 0x3C responding to command 0x8D
+→ Testing command 0x9F
+��� Found device at 0x3C responding to command 0x9F
+→ Testing command 0xDB
+✅ Found device at 0x3C responding to command 0xDB
+→ Testing command 0x7E
+✅ Found deto command 0x7E
+vice at 0x3C responding → Testing command 0x7E
+✅ Found device at 0x3C responding to command 0x7E
+��� Testing command 0xFF
+✅ Found device at 0x3C responding to command 0xFF
+→ Testing command 0xCB
+✅ Found device at 0x3C responding to command 0xCB
+→ Testing command 0x7E
+✅ Found device at 0x3C responding to command 0x7E
+→ Testing command 0x7D
+�� Found device at 0x3C responding to command 0x7D
+→ Testing command 0xFE
+✅ Found device at 0x3C responding to command 0xFE
+→ Testing command 0x77
+✅ Found device at 0x3C responding to command 0x77
+→ Testing command 0xBD
+✅ Found device at 0x3C responding to command 0xBD
+�� Testing command 0xF6
+✅ Found device at 0x3C responding to command 0xF6
+→ Testing command 0x66
+✅ Found device at 0x3C responding to command 0x66
+→ Testing command 0x78
+✅ Found device at 0x3C responding to command 0x78
+→ Testing command 0xC1
+✅ Found device at 0x3C responding to command 0xC1
+→ Testing command 0x9A
+✅ Found device at 0x3C responding to command 0x9A
+→ Testing command 0xFB
+✅ Found device at 0x3C responding to command 0xFB
+→ Testing command 0xB8
+✅ Found device at 0x3C responding to command 0xB8
+→ Testing command 0x3E
+��� Found device at 0x3C responding to command 0x3E
+→ Testing command 0x9F
+✅ Found device at 0x3C responding to command 0x9F
+→ Testing command 0x9C
+✅ Found device at 0x3C responding to command 0x9C
+→ Testing command 0x7B
+✅ Found device at 0x3C responding to command 0x7B
+��� Testing command 0xE6
+✅ Found device at 0x3C responding to command 0xE6
+→ Testing command 0xAE
+✅ Found device at 0x3C responding to command 0xAE
+→ Testing command 0x2B
+✅ Found device at 0x3C responding to command 0x2B
+→ Testing command 0x7F
+✅ Found device at 0x3C responding to command 0x7F
+→ Testing command 0x12
+✅ Found device at 0x3C responding to command 0x12
+→ Testing command 0x7F
+✅ Found device at 0x3C responding to command 0x7F
+→ Testing command 0xB7
+✅ Found device at 0x3C responding to command 0xB7
+�� Testing command 0xBE
+✅ Found device at 0x3C responding to command 0xBE
+→ Testing command 0xB7
+✅ Found device at 0x3C responding to command 0xB7
+→ Testing command 0x37
+✅ Found device at 0x3C responding to command 0x37
+→ Testing command 0xF2
+✅ Found device at 0x3C responding to command 0xF2
+→ Testing command 0x05
+✅ Found device at 0x3C responding to command 0x05
+→ Testing command 0x7D
+✅ Found device at 0x3C responding to command 0x7D
+→ Testing command 0xF1
+✅ Found device at 0x3C responding to command 0xF1
+→ Testing command 0x6B
+��� Found device at 0x3C responding to command 0x6B
+→ Testing command 0x23
+✅ Found device at 0x3C responding to command 0x23
+→ Testing command 0x25
+✅ Found device at 0x3C responding to command 0x25
+→ Testing command 0xF5
+✅ Found device at 0x3C responding to command 0xF5
+��� Testing command 0x1F
+✅ Found device at 0x3C responding to command 0x1F
+→ Testing command 0xF7
+✅ Found device at 0x3C responding to command 0xF7
+→ Testing command 0xB6
+✅ Found device at 0x3C responding to command 0xB6
+→ Testing command 0x7B
+✅ Found device at 0x3C responding to command 0x7B
+→ Testing command 0xE4
+✅ Found device at 0x3C responding to command 0xE4
+→ Testing command 0x5B
+✅ Found device at 0x3C responding to command 0x5B
+→ Testing command 0xD3
+✅ Found device at 0x3C responding to command 0xD3
+�� Testing command 0x6D
+✅ Found device at 0x3C responding to command 0x6D
+→ Testing command 0xBF
+✅ Found device at 0x3C responding to command 0xBF
+→ Testing command 0x33
+✅ Found device at 0x3C responding to command 0x33
+→ Testing command 0xFB
+✅ Found device at 0x3C responding to command 0xFB
+→ Testing command 0xFE
+✅ Found device at 0x3C responding to command 0xFE
+→ Testing command 0x39
+✅ Found device at 0x3C responding to command 0x39
+→ Testing command 0x5B
+✅ Found device at 0x3C responding to command 0x5B
+→ Testing command 0xCD
+�� Found device at 0x3C responding to command 0xCD
+→ Testing command 0xEA
+✅ Found device at 0x3C responding to command 0xEA
+→ Testing command 0xFF
+✅ Found device at 0x3C responding to command 0xFF
+→ Testing command 0x8E
+✅ Found device at 0x3C responding to command 0x8E
+��� Testing command 0x72
+✅ Found device at 0x3C responding to command 0x72
+→ Testing command 0x1F
+✅ Found device at 0x3C responding to command 0x1F
+→ Testing command 0xE7
+✅ Found device at 0x3C responding to command 0xE7
+→ Testing command 0x77
+✅ Found device at 0x3C responding to command 0x77
+→ Testing command 0xEF
+✅ Found device at 0x3C responding to command 0xEF
+→ Testing command 0x92
+✅ Found device at 0x3C responding to command 0x92
+→ Testing command 0x17
+✅ Found device at 0x3C responding to command 0x17
+→ Testing command 0xFA
+✅ Found device at 0x3C responding to command 0xFA
+→ Testing command 0xA9
+✅ Found device at 0x3C responding to command 0xA9
+→ Testing command 0x31
+✅ Found device at 0x3C responding to command 0x31
+→ Testing command 0x3E
+✅ Found device at 0x3C responding to command 0x3E
+→ Testing command 0xBC
+✅ Found device at 0x3C responding to command 0xBC
+→ Testing command 0xA8
+✅ Found device at 0x3C responding to command 0xA8
+→ Testing command 0xF5
+✅ Found device at 0x3C responding to command 0xF5
+→ Testing command 0x8E
+�� Found device at 0x3C responding to command 0x8E
+→ Testing command 0xEE
+✅ Found device at 0x3C responding to command 0xEE
+→ Testing command 0x42
+✅ Found device at 0x3C responding to command 0x42
+→ Testing command 0xD6
+✅ Found device at 0x3C responding to command 0xD6
+��� Testing command 0x7E
+✅ Found device at 0x3C responding to command 0x7E
+→ Testing command 0xFE
+✅ Found device at 0x3C responding to command 0xFE
+→ Testing command 0xC6
+✅ Found device at 0x3C responding to command 0xC6
+→ Testing command 0x7B
+✅ Found device at 0x3C responding to command 0x7B
+→ Testing command 0xCD
+✅ Found device at 0x3C responding to command 0xCD
+→ Testing command 0x9F
+✅ Found device at 0x3C responding to command 0x9F
+→ Testing command 0xFD
+✅ Found device at 0x3C responding to command 0xFD
+→ Testing command 0xEE
+��� Found device at 0x3C responding to command 0xEE
+→ Testing command 0xD7
+✅ Found device at 0x3C responding to command 0xD7
+→ Testing command 0xBB
+✅ Found device at 0x3C responding to command 0xBB
+→ Testing command 0x7B
+✅ Found device at 0x3C responding to command 0x7B
+→ Testing command 0xFA
+✅ Found device at 0x3C responding to command 0xFA
+→ Testing command 0x17
+✅ Found device at 0x3C responding to command 0x17
+→ Testing command 0xD2
+✅ Found device at 0x3C responding to command 0xD2
+→ Testing command 0x3A
+�� Found device at 0x3C responding to command 0x3A
+→ Testing command 0x79
+✅ Found device at 0x3C responding to command 0x79
+→ Testing command 0x7A
+✅ Found device at 0x3C responding to command 0x7A
+→ Testing command 0xD7
+✅ Found device at 0x3C responding to command 0xD7
+�� Testing command 0xBA
+✅ Found device at 0x3C responding to command 0xBA
+→ Testing command 0xCF
+✅ Found device at 0x3C responding to command 0xCF
+→ Testing command 0x7C
+✅ Found device at 0x3C responding to command 0x7C
+→ Testing command 0xFD
+✅ Found device at 0x3C responding to command 0xFD
+→ Testing command 0xDA
+✅ Found device at 0x3C responding to command 0xDA
+→ Testing command 0x72
+✅ Found device at 0x3C responding to command 0x72
+→ Testing command 0x72
+✅ Found device at 0x3C responding to command 0x72
+→ Testing command 0x87
+��� Found device at 0x3C responding to command 0x87
+→ Testing command 0xCE
+✅ Found device at 0x3C responding to command 0xCE
+→ Testing command 0x4C
+✅ Found device at 0x3C responding to command 0x4C
+→ Testing command 0x3C
+✅ Found device at 0x3C responding to command 0x3C
+→ Testing command 0xEF
+✅ Found device at 0x3C responding to command 0xEF
+→ Testing command 0xD0
+✅ Found device at 0x3C responding to command 0xD0
+→ Testing command 0x3F
+✅ Found device at 0x3C responding to command 0x3F
+→ Testing command 0xFC
+�� Found device at 0x3C responding to command 0xFC
+→ Testing command 0x64
+✅ Found device at 0x3C responding to command 0x64
+→ Testing command 0x7F
+✅ Found device at 0x3C responding to command 0x7F
+→ Testing command 0xDD
+✅ Found device at 0x3C responding to command 0xDD
+�� Testing command 0xDA
+✅ Found device at 0x3C responding to command 0xDA
+→ Testing command 0xC9
+✅ Found device at 0x3C responding to command 0xC9
+→ Testing command 0x7E
+✅ Found device at 0x3C responding to command 0x7E
+→ Testing command 0xBB
+✅ Found device at 0x3C responding to command 0xBB
+→ Testing command 0xBF
+✅ Found device at 0x3C responding to command 0xBF
+→ Testing command 0x83
+✅ Found device at 0x3C responding to command 0x83
+→ Testing command 0xA2
+✅ Found device at 0x3C responding to command 0xA2
+→ Testing command 0x3E
+��� Found device at 0x3C responding to command 0x3E
+→ Testing command 0x35
+✅ Found device at 0x3C responding to command 0x35
+→ Testing command 0xAF
+✅ Found device at 0x3C responding to command 0xAF
+→ Testing command 0xB3
+✅ Found device at 0x3C responding to command 0xB3
+��� Testing command 0xF7
+✅ Found device at 0x3C responding to command 0xF7
+→ Testing command 0xED
+✅ Found device at 0x3C responding to command 0xED
+→ Testing command 0x16
+✅ Found device at 0x3C responding to command 0x16
+→ Testing command 0xEF
+�� Found device at 0x3C responding to command 0xEF
+→ Testing command 0xBF
+✅ Found device at 0x3C responding to command 0xBF
+→ Testing command 0x8F
+✅ Found device at 0x3C responding to command 0x8F
+→ Testing command 0xBA
+✅ Found device at 0x3C responding to command 0xBA
+�� Testing command 0x6C
+✅ Found device at 0x3C responding to command 0x6C
+→ Testing command 0xFC
+✅ Found device at 0x3C responding to command 0xFC
+→ Testing command 0x7C
+✅ Found device at 0x3C responding to command 0x7C
+→ Testing command 0xC2
+✅ Found device at 0x3C responding to command 0xC2
+→ Testing command 0xA0
+✅ Found device at 0x3C responding to command 0xA0
+→ Testing command 0x2F
+✅ Found device at 0x3C responding to command 0x2F
+→ Testing command 0x47
+✅ Found device at 0x3C responding to command 0x47
+→ Testing command 0x2C
+��� Found device at 0x3C responding to command 0x2C
+→ Testing command 0xFE
+✅ Found device at 0x3C responding to command 0xFE
+→ Testing command 0xF9
+✅ Found device at 0x3C responding to command 0xF9
+→ Testing command 0x5C
+✅ Found device at 0x3C responding to command 0x5C
+��� Testing command 0xB3
+✅ Found device at 0x3C responding to command 0xB3
+→ Testing command 0x4F
+✅ Found device at 0x3C responding to command 0x4F
+→ Testing command 0x43
+✅ Found device at 0x3C responding to command 0x43
+→ Testing command 0xF7
+✅ Found device at 0x3C responding to command 0xF7
+→ Testing command 0x5D
+✅ Found device at 0x3C responding to command 0x5D
+→ Testing command 0x65
+✅ Found device at 0x3C responding to command 0x65
+→ Testing command 0x9A
+✅ Found device at 0x3C responding to command 0x9A
+�� Testing command 0x1E
+✅ Found device at 0x3C responding to command 0x1E
+→ Testing command 0xED
+✅ Found device at 0x3C responding to command 0xED
+→ Testing command 0x27
+✅ Found device at 0x3C responding to command 0x27
+→ Testing command 0x10
+✅ Found device at 0x3C responding to command 0x10
+→ Testing command 0x9C
+✅ Found device at 0x3C responding to command 0x9C
+→ Testing command 0xC2
+✅ Found device at 0x3C responding to command 0xC2
+→ Testing command 0xDD
+✅ Found device at 0x3C responding to command 0xDD
+→ Testing command 0xDA
+��� Found device at 0x3C responding to command 0xDA
+→ Testing command 0x6B
+✅ Found device at 0x3C responding to command 0x6B
+→ Testing command 0x23
+✅ Found device at 0x3C responding to command 0x23
+→ Testing command 0x7B
+✅ Found device at 0x3C responding to command 0x7B
+��� Testing command 0x81
+✅ Found device at 0x3C responding to command 0x81
+→ Testing command 0xFC
+✅ Found device at 0x3C responding to command 0xFC
+→ Testing command 0xFE
+✅ Found device at 0x3C responding to command 0xFE
+→ Testing command 0xCD
+✅ Found device at 0x3C responding to command 0xCD
+→ Testing command 0xFF
+✅ Found device at 0x3C responding to command 0xFF
+→ Testing command 0x9B
+✅ Found device at 0x3C responding to command 0x9B
+→ Testing command 0xAE
+✅ Found device at 0x3C responding to command 0xAE
+�� Testing command 0x5A
+✅ Found device at 0x3C responding to command 0x5A
+→ Testing command 0xE7
+✅ Found device at 0x3C responding to command 0xE7
+→ Testing command 0xE2
+✅ Found device at 0x3C responding to command 0xE2
+→ Testing command 0x7B
+✅ Found device at 0x3C responding to command 0x7B
+→ Testing command 0xF7
+✅ Found device at 0x3C responding to command 0xF7
+→ Testing command 0x97
+✅ Found device at 0x3C responding to command 0x97
+→ Testing command 0xD4
+✅ Found device at 0x3C responding to command 0xD4
+→ Testing command 0x3B
+��� Found device at 0x3C responding to command 0x3B
+→ Testing command 0x50
+✅ Found device at 0x3C responding to command 0x50
+→ Testing command 0x3F
+✅ Found device at 0x3C responding to command 0x3F
+→ Testing command 0xDA
+✅ Found device at 0x3C responding to command 0xDA
+��� Testing command 0xFF
+✅ Found device at 0x3C responding to command 0xFF
+→ Testing command 0xEB
+✅ Found device at 0x3C responding to command 0xEB
+→ Testing command 0xFB
+✅ Found device at 0x3C responding to command 0xFB
+→ Testing command 0x6E
+✅ Found device at 0x3C responding to command 0x6E
+→ Testing command 0xFF
+✅ Found device at 0x3C responding to command 0xFF
+→ Testing command 0xF6
+✅ Found device at 0x3C responding to command 0xF6
+→ Testing command 0x2D
+✅ Found device at 0x3C responding to command 0x2D
+→ Testing command 0x5B
+✅ Found device at 0x3C responding to command 0x5B
+→ Testing command 0xB4
+✅ Found device at 0x3C responding to command 0xB4
+→ Testing command 0x01
+✅ Found device at 0x3C responding to command 0x01
+→ Testing command 0x33
+✅ Found device at 0x3C responding to command 0x33
+→ Testing command 0x30
+✅ Found device at 0x3C responding to command 0x30
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+�� Found device at 0x3C responding to command 0x00
+→ Testing command 0x0D
+✅ Found device at 0x3C responding to command 0x0D
+→ Testing command 0xF9
+✅ Found device at 0x3C responding to command 0xF9
+→ Testing command 0x15
+✅ Found device at 0x3C responding to command 0x15
+��� Testing command 0xF2
+✅ Found device at 0x3C responding to command 0xF2
+→ Testing command 0x01
+✅ Found device at 0x3C responding to command 0x01
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x02
+✅ Found device at 0x3C responding to command 0x02
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x01
+✅ Found device at 0x3C responding to command 0x01
+→ Testing command 0x0F
+✅ Found device at 0x3C responding to command 0x0F
+→ Testing command 0x61
+✅ Found device at 0x3C responding to command 0x61
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x01
+✅ Found device at 0x3C responding to command 0x01
+→ Testing command 0xFF
+✅ Found device at 0x3C responding to command 0xFF
+→ Testing command 0xBB
+�� Found device at 0x3C responding to command 0xBB
+→ Testing command 0x01
+✅ Found device at 0x3C responding to command 0x01
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x14
+✅ Found device at 0x3C responding to command 0x14
+�� Testing command 0xED
+✅ Found device at 0x3C responding to command 0xED
+→ Testing command 0x02
+✅ Found device at 0x3C responding to command 0x02
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0xED
+✅ Found device at 0x3C responding to command 0xED
+→ Testing command 0x20
+��� Found device at 0x3C responding to command 0x20
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0xA7
+✅ Found device at 0x3C responding to command 0xA7
+→ Testing command 0x0E
+✅ Found device at 0x3C responding to command 0x0E
+→ Testing command 0x02
+✅ Found device at 0x3C responding to command 0x02
+→ Testing command 0x00
+✅ Found device at 0x3C responding to command 0x00
+→ Testing command 0x01
+✅ Found device at 0x3C responding to command 0x01
+理���シーケンス: [20, 00, A7, 0E, 02, 00, 01, 00, 8B, 26, 78, 94, 21, A4, 30, 00, 00, 00, 00, 00, 0E, 27, 00, 01, CE, 18, CF, 07, CE, 00, 01, 59, 0F, 34, 0F, 3B, 0F, 3A, 11, C6, 18, 6F, 11, CF, 02, 00, 00, 00, 00, E9, 20, 00, D9, 0E, 02, 00, 02, 00, 44, 37, 25, 0E, 30, 00, 30, 00, 00, 00, 00, 00, 0E, 59, 00, 02, 00, 01, 0F, A2, 02, 23, 02, 2F, 02, 23, 02, 23, 00, 00, 0E, 88, ED, C1, 71, 23, 00, 00, 03, 00, 00, 00, 00, 0E, 7A, 12, B4, 01, 00, 00, 02, 00, 0E, 81, 00, 03, 02, 3B, 02, 3C, 02, 3B, 01, AC, 0F, 08, 0F, 0F, 0F, 0E, 19, DB, 31, 36, 36, 02, 00, 02, 00, 01, 00, 01, 33, 30, 00, 00, 00, 0E, A6, 15, F2, 01, 00, 00, 02, 00, 01, 0F, 61, 00, 00, 00, 01, FF, BB, 01, 00, 14, 31, 31, 0E, AD, 0F, 61, 1D, 50, 00, 54, 0F, 02, 00, 01, 00, 0D, 03, 9E, 02, 3D, 0F, 30, 00, 00, 00, 00, 00, 0E, D4, 00, 01, 00, 02, 07, CE, 02, 38, 02, 44, 02, 38, 02, 38, 00, 01, 11, C6, A2, 00, 01, 0F, 96, 00, 00, 08, 7D, 15, EE, 10, 10, 96, 0F, 1B, 02, 02, 00, CA, FF, 00, 01, 20, 00, 00, E0, 00, 00, 00, 00, 0F, 07, 0F, 90, 03, A6, 08, 7D, 02, 1B, 01, 42, 0F, 92, 0F, A2, 08, 7D, 0B]
+応答あり���マンド: [7C, DA, 5B, B5, F4, 60, E3, 9D, F7, 9B, 81, DB, B7, 3A, E7, CD, A2, CF, D6, DE, FA, AB, 2D, FF, CE, 2A, 47, F9, 3D, DF, DF, 57, 3B, 44, BF, 8D, 9F, DB, 7E, 7E, FF, CB, 7E, 7D, FE, 77, BD, F6, 66, 78, C1, 9A, FB, B8, 3E, 9F, 9C, 7B, E6, AE, 2B, 7F, 12, 7F]

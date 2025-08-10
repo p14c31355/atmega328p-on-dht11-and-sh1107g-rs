@@ -3,12 +3,8 @@
 #![feature(abi_avr_interrupt)]
 
 use arduino_hal::default_serial;
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-};
 use panic_halt as _;
-use dvcdbg::logger::{Logger, SerialLogger};
+use dvcdbg::logger::SerialLogger;
 use dvcdbg::log;
 use core::fmt::Write;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
@@ -94,7 +90,7 @@ fn main() -> ! {
         payload.push(0x00).unwrap();
         payload.extend_from_slice(SH1107G_INIT_CMDS).unwrap();
 
-        if let Err(e) = I2cWrite::write(&mut i2c, addr, &payload) {
+        if let Err(_e) = I2cWrite::write(&mut i2c, addr, &payload) {
             log!(&mut logger, "Init failed: {:?}", e);
         } else {
             log!(&mut logger, "Init OK");

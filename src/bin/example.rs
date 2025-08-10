@@ -8,8 +8,8 @@ use embedded_graphics::{
     prelude::*,
 };
 use panic_halt as _;
-use sh1107g_rs::{Sh1107g, DefaultLogger};
-use dvcdbg::logger::{Logger, SerialLogger};
+use sh1107g_rs::Sh1107g;
+use dvcdbg::logger::SerialLogger;
 use dvcdbg::log;
 use core::fmt::Write;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
@@ -58,20 +58,18 @@ fn main() -> ! {
 
     // log! マクロの呼び出しを display.with_logger でラップ
     // `Sh1107g` に `with_logger` メソッドを追加
-    display.with_logger(|logger_ref| log!(logger_ref, "Initializing..."));
+    log!(logger_ref, "Initializing...");
 
     display.init().unwrap();
     display.clear(BinaryColor::Off).unwrap();
 
-    display.with_logger(|logger_ref| {
-        log!(logger_ref, "Display initialized and cleared.");
-    });
+    log!(logger_ref, "Display initialized and cleared.");
+    
 
     display.clear(BinaryColor::On).unwrap();
     display.flush().unwrap();
-    display.with_logger(|logger_ref| {
+    
         log!(logger_ref, "Display filled with white.");
-    });
 
     loop {
         // 無限ループ

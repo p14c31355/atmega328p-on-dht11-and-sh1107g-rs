@@ -7,11 +7,10 @@ use embedded_graphics::{
     prelude::*,
     primitives::{Rectangle, PrimitiveStyle},
 };
-use sh1107g_rs::{Sh1107gBuilder, error::Sh1107gError};
-use dvcdbg::{log, logger::{self, SerialLogger, Logger}};
+use sh1107g_rs::Sh1107gBuilder;
+use dvcdbg::{log, logger::SerialLogger};
 
 use embedded_hal::serial::Write;
-use core::fmt::Write as FmtWrite;
 
 struct FmtWriteWrapper<W>(W);
 
@@ -63,37 +62,25 @@ fn main() -> ! {
     // display.logger を借用してログ出す
     // Sh1107g に with_logger メソッドがある前提
 
-    display.with_logger(|logger| {
+    
         log!(logger, "🎨 Drawing full white rectangle...");
-    });
+    
 
     if let Err(e) = rect.into_styled(white_style).draw(&mut display) {
-        display.with_logger(|logger| {
             log!(logger, "❌ Drawing failed: {:?}", e);
-        });
     } else {
-        display.with_logger(|logger| {
             log!(logger, "✅ Drawing succeeded");
-        });
     }
 
-    display.with_logger(|logger| {
         log!(logger, "📡 Flushing buffer to display...");
-    });
 
     if let Err(e) = display.flush() {
-        display.with_logger(|logger| {
             log!(logger, "❌ Flush failed: {:?}", e);
-        });
     } else {
-        display.with_logger(|logger| {
             log!(logger, "✅ Flush succeeded, display updated");
-        });
     }
 
-    display.with_logger(|logger| {
         log!(logger, "🔄 Entering main loop");
-    });
 
     loop {
         // メインループ

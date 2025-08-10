@@ -5,6 +5,7 @@
 use arduino_hal::default_serial;
 use panic_halt as _;
 use dvcdbg::logger::SerialLogger;
+use dvcdbg::logger::Logger;
 use dvcdbg::log;
 use core::fmt::Write;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;

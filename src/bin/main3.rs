@@ -9,7 +9,8 @@ use embedded_graphics::{
 };
 use panic_halt as _;
 use sh1107g_rs::Sh1107g;
-use dvcdbg::logger::{Logger, SerialLogger};
+use dvcdbg::logger::SerialLogger;
+use dvcdbg::logger::Logger;
 use dvcdbg::log;
 use core::fmt::Write;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;

@@ -11,6 +11,7 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107g;
 use dvcdbg::logger::SerialLogger;
 use dvcdbg::log;
+use dvcdbg::logger::Logger;
 use core::fmt::Write;
 use embedded_hal::serial::Write as EmbeddedHalSerialWrite;
 use dvcdbg::scanner::scan_i2c;

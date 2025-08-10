@@ -9,6 +9,7 @@ use embedded_graphics::{
 };
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::{log, logger::SerialLogger};
+use dvcdbg::logger::Logger;
 
 use embedded_hal::serial::Write;
 

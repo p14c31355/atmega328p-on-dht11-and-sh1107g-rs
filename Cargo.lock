@@ -170,6 +170,8 @@ dependencies = [
 [[package]]
 name = "dvcdbg"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54f1455eee4f8c15b13793b388043a35b63c85cef0c72be9c5318afddb67d389"
 dependencies = [
  "embedded-hal 1.0.0",
  "heapless",

@@ -54,23 +54,24 @@ fn main() -> ! {
     // I2Cバスのスキャンを実行
     scan_i2c(&mut i2c, &mut logger);
 
-    let mut display: Sh1107g<
-        arduino_hal::I2c,
-        _,
-    > = Sh1107g::new(i2c, 0x3C, Some(&mut logger));
+    let mut display = Sh1107g::new(i2c, 0x3C, Some(&mut logger));
 
     // log! マクロの呼び出しを display.with_logger でラップ
+    // `Sh1107g` に `with_logger` メソッドを追加
     display.with_logger(|logger_ref| log!(logger_ref, "Initializing..."));
 
     display.init().unwrap();
     display.clear(BinaryColor::Off).unwrap();
 
-    display.with_logger(|logger_ref| log!(logger_ref, "Display initialized and cleared."));
+    display.with_logger(|logger_ref| {
+        log!(logger_ref, "Display initialized and cleared.");
+    });
 
     display.clear(BinaryColor::On).unwrap();
     display.flush().unwrap();
-
-    display.with_logger(|logger_ref| log!(logger_ref, "Display filled with white."));
+    display.with_logger(|logger_ref| {
+        log!(logger_ref, "Display filled with white.");
+    });
 
     loop {
         // 無限ループ

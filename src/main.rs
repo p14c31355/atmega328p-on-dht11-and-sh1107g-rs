@@ -1,3 +1,2 @@
-fn main() {
-    println!("Hello, SH1107G!");
-}
+#![no_std]
+fn main() {}

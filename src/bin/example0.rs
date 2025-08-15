@@ -12,6 +12,12 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::prelude::*;
 use arduino_hal::default_serial;
+use arduino_hal::hal::usart::Usart;
+use arduino_hal::port::{mode, Pin};
+use embedded_hal::serial::nb::Write as EmbeddedHalSerialWrite; // embedded_hal::serial::nb::Write トレイトをインポート
+
+// impl_fmt_write_for_serial! マクロを正確に記述
+impl_fmt_write_for_serial!(Usart<arduino_hal::Atmega, arduino_hal::hal::usart::USART0, arduino_hal::port::Pin<arduino_hal::port::mode::Input, arduino_hal::port::PD0>, arduino_hal::port::Pin<arduino_hal::port::mode::Output, arduino_hal::port::PD1>, arduino_hal::clock::MHz16>, write);
 
 #[arduino_hal::entry]
 fn main() -> ! {

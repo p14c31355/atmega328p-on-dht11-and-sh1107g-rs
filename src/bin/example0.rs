@@ -12,6 +12,8 @@ use embedded_graphics::{
 };
 use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
+use dvcdbg::{log, logger::SerialLogger};
+use core::fmt::Write; // log!マクロで必要になる可能性があるため追加
 // use sh1107g_rs::sync::Display; // Displayトレイトは不要
 
 #[arduino_hal::entry]
@@ -20,17 +22,24 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = Delay::new();
 
+    let mut serial = SerialLogger::new(dp.USART0, pins.d0, pins.d1.into_output());
+    writeln!(serial, "dvcdbg: Program Start").unwrap();
+
     let i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         50000,
     );
+    writeln!(serial, "dvcdbg: I2C Initialized").unwrap();
 
     let mut display = Sh1107gBuilder::new(i2c).build();
+    writeln!(serial, "dvcdbg: Display Builder created").unwrap();
 
     display.init().unwrap();
+    writeln!(serial, "dvcdbg: Display Initialized").unwrap();
     display.clear(BinaryColor::Off).unwrap();
+    writeln!(serial, "dvcdbg: Display Cleared").unwrap();
 
     let text_style = MonoTextStyleBuilder::new()
         .font(&FONT_6X10)
@@ -40,8 +49,10 @@ fn main() -> ! {
     Text::with_baseline("Hello, World!", Point::new(0, 16), text_style, Baseline::Top)
         .draw(&mut display)
         .unwrap();
+    writeln!(serial, "dvcdbg: Text Drawn").unwrap();
 
     display.flush().unwrap();
+    writeln!(serial, "dvcdbg: Display Flushed").unwrap();
 
     loop {}
 }

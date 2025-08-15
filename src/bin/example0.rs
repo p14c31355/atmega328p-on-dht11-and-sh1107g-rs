@@ -12,8 +12,31 @@ use embedded_graphics::{
 };
 use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
-use dvcdbg::{log, logger::SerialLogger};
-use core::fmt::Write; // log!マクロで必要になる可能性があるため追加
+use dvcdbg::prelude::*; // dvcdbgのpreludeをインポート
+use arduino_hal::default_serial; // default_serial! マクロのために追加
+use arduino_hal::hal::usart::Usart;
+use arduino_hal::port::{mode, Pin};
+use core::fmt::Write; // SerialWriterのために必要
+
+// SerialWriter構造体とimpl_fmt_write_for_serial!マクロを追加
+pub struct SerialWriter<'a, USART>
+where
+    USART: embedded_hal::serial::Write<u8>,
+{
+    serial: &'a mut USART,
+}
+
+impl<'a, USART> SerialWriter<'a, USART>
+where
+    USART: embedded_hal::serial::Write<u8>,
+{
+    pub fn new(serial: &'a mut USART) -> Self {
+        Self { serial }
+    }
+}
+
+impl_fmt_write_for_serial!(SerialWriter<'_, Usart<arduino_hal::Atmega, arduino_hal::hal::usart::USART0, Pin<mode::Input, arduino_hal::port::PD0>, Pin<mode::Output, arduino_hal::port::PD1>, arduino_hal::clock::MHz16>>);
+
 // use sh1107g_rs::sync::Display; // Displayトレイトは不要
 
 #[arduino_hal::entry]
@@ -22,8 +45,10 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = Delay::new();
 
-    let mut serial = SerialLogger::new(dp.USART0, pins.d0, pins.d1.into_output());
-    writeln!(serial, "dvcdbg: Program Start").unwrap();
+    let mut serial = default_serial!(dp, pins, 57600);
+    let mut serial_writer = SerialWriter::new(&mut serial);
+    let mut logger = SerialLogger::new(&mut serial_writer);
+    log!(logger, "Program Start");
 
     let i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -31,15 +56,15 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         50000,
     );
-    writeln!(serial, "dvcdbg: I2C Initialized").unwrap();
+    log!(logger, "I2C Initialized");
 
     let mut display = Sh1107gBuilder::new(i2c).build();
-    writeln!(serial, "dvcdbg: Display Builder created").unwrap();
+    log!(logger, "Display Builder created");
 
     display.init().unwrap();
-    writeln!(serial, "dvcdbg: Display Initialized").unwrap();
+    log!(logger, "Display Initialized");
     display.clear(BinaryColor::Off).unwrap();
-    writeln!(serial, "dvcdbg: Display Cleared").unwrap();
+    log!(logger, "Display Cleared");
 
     let text_style = MonoTextStyleBuilder::new()
         .font(&FONT_6X10)
@@ -49,10 +74,10 @@ fn main() -> ! {
     Text::with_baseline("Hello, World!", Point::new(0, 16), text_style, Baseline::Top)
         .draw(&mut display)
         .unwrap();
-    writeln!(serial, "dvcdbg: Text Drawn").unwrap();
+    log!(logger, "Text Drawn");
 
     display.flush().unwrap();
-    writeln!(serial, "dvcdbg: Display Flushed").unwrap();
+    log!(logger, "Display Flushed");
 
     loop {}
 }

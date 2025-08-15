@@ -11,7 +11,8 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 use panic_halt as _;
-use sh1107g_rs::{prelude::*, Sh1107g};
+use sh1107g_rs::Sh1107gBuilder;
+// use sh1107g_rs::sync::Display; // Displayトレイトは不要
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -26,11 +27,10 @@ fn main() -> ! {
         50000,
     );
 
-    let mut display = Sh1107g::new(I2CDisplayInterface::new(i2c), DisplaySize128x64, VccSource::External)
-        .into_buffered_graphics_mode();
+    let mut display = Sh1107gBuilder::new(i2c).build();
 
-    display.init(&mut delay).unwrap();
-    display.clear();
+    display.init().unwrap();
+    display.clear(BinaryColor::Off).unwrap();
 
     let text_style = MonoTextStyleBuilder::new()
         .font(&FONT_6X10)

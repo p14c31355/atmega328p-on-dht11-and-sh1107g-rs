@@ -1,8 +1,6 @@
 #![no_std]
 #![no_main]
 
-use arduino_hal::hal::port::Dynamic;
-use arduino_hal::port::{mode, Pin};
 use arduino_hal::Delay;
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyleBuilder},
@@ -12,32 +10,8 @@ use embedded_graphics::{
 };
 use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
-use dvcdbg::prelude::*; // dvcdbgのpreludeをインポート
-use arduino_hal::default_serial; // default_serial! マクロのために追加
-use arduino_hal::hal::usart::Usart;
-use arduino_hal::port::{mode, Pin};
-use core::fmt::Write; // SerialWriterのために必要
-
-// SerialWriter構造体とimpl_fmt_write_for_serial!マクロを追加
-pub struct SerialWriter<'a, USART>
-where
-    USART: embedded_hal::serial::Write<u8>,
-{
-    serial: &'a mut USART,
-}
-
-impl<'a, USART> SerialWriter<'a, USART>
-where
-    USART: embedded_hal::serial::Write<u8>,
-{
-    pub fn new(serial: &'a mut USART) -> Self {
-        Self { serial }
-    }
-}
-
-impl_fmt_write_for_serial!(SerialWriter<'_, Usart<arduino_hal::Atmega, arduino_hal::hal::usart::USART0, Pin<mode::Input, arduino_hal::port::PD0>, Pin<mode::Output, arduino_hal::port::PD1>, arduino_hal::clock::MHz16>>);
-
-// use sh1107g_rs::sync::Display; // Displayトレイトは不要
+use dvcdbg::prelude::*;
+use arduino_hal::default_serial;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -46,8 +20,7 @@ fn main() -> ! {
     let mut delay = Delay::new();
 
     let mut serial = default_serial!(dp, pins, 57600);
-    let mut serial_writer = SerialWriter::new(&mut serial);
-    let mut logger = SerialLogger::new(&mut serial_writer);
+    let mut logger = SerialLogger::new(&mut serial);
     log!(logger, "Program Start");
 
     let i2c = arduino_hal::I2c::new(

@@ -12,6 +12,7 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::prelude::*;
 use arduino_hal::default_serial;
+
 use arduino_hal::hal::usart::Usart;
 use arduino_hal::port::{mode, Pin};
 use embedded_hal::serial::nb::Write as EmbeddedHalSerialWrite; // embedded_hal::serial::nb::Write トレイトをインポート
@@ -21,6 +22,7 @@ use arduino_hal::clock::MHz16; // MHz16のパスを修正
 
 // impl_fmt_write_for_serial! マクロを正確に記述
 impl_fmt_write_for_serial!(Usart<Atmega, USART0, Pin<mode::Input, PD0>, Pin<mode::Output, PD1>, MHz16>, write);
+
 
 #[arduino_hal::entry]
 fn main() -> ! {

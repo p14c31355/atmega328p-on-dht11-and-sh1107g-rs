@@ -11,7 +11,7 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107g;
 use dvcdbg::logger::SerialLogger;
 use dvcdbg::log;
-use dvcdbg::logger::Logger;
+use dvcdbg::prelude::*;
 use core::fmt::Write;
 
 use dvcdbg::scanner::scan_i2c;
@@ -23,8 +23,7 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut serial = default_serial!(dp, pins, 57600);
 
-    let mut serial_writer = SerialLogger::new(&mut serial);
-    let mut logger = SerialLogger::new(&mut serial_writer);
+    let mut logger = SerialLogger::new(&mut serial);
 
     let mut i2c = arduino_hal::I2c::new( // i2c を可変にする
         dp.TWI,
@@ -40,18 +39,18 @@ fn main() -> ! {
 
     // log! マクロの呼び出しを display.with_logger でラップ
     // `Sh1107g` に `with_logger` メソッドを追加
-    log!(logger_ref, "Initializing...");
+    log!(logger, "Initializing...");
 
     display.init().unwrap();
     display.clear(BinaryColor::Off).unwrap();
 
-    log!(logger_ref, "Display initialized and cleared.");
+    log!(logger, "Display initialized and cleared.");
     
 
     display.clear(BinaryColor::On).unwrap();
     display.flush().unwrap();
     
-        log!(logger_ref, "Display filled with white.");
+        log!(logger, "Display filled with white.");
 
     loop {
         // 無限ループ

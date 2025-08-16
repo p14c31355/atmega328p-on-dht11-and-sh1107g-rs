@@ -12,21 +12,20 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::prelude::*;
 use arduino_hal::default_serial;
-use embedded_hal::serial::Write;
-use embedded_hal::blocking::serial::Write as BlockingWrite; // BlockingWriteトレイトをインポートし、エイリアスを設定
+use embedded_hal::blocking::serial::Write; // embedded_hal::blocking::serial::Writeトレイトをインポート
 use nb; // nbクレートをインポート
 
 // SerialWriter構造体とimpl_fmt_write_for_serial!マクロを追加
 pub struct SerialWriter<'a, T>
 where
-    T: Write<u8>,
+    T: Write<Word = u8>,
 {
     serial: &'a mut T,
 }
 
 impl<'a, T> SerialWriter<'a, T>
 where
-    T: Write<u8>,
+    T: Write<Word = u8>,
 {
     pub fn new(serial: &'a mut T) -> Self {
         SerialWriter { serial }
@@ -35,7 +34,7 @@ where
 
 impl<'a, T> core::fmt::Write for SerialWriter<'a, T>
 where
-    T: BlockingWrite<u8>, // BlockingWriteトレイトを使用
+    T: Write<Word = u8>,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for byte in s.bytes() {

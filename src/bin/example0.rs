@@ -14,6 +14,9 @@ use dvcdbg::prelude::*;
 use arduino_hal::default_serial;
 use embedded_hal::blocking::serial::Write; // embedded_hal::blocking::serial::Writeトレイトをインポート
 use nb; // nbクレートをインポート
+use arduino_hal::pac::USART0;
+use arduino_hal::port::mode::{Input, Output};
+use arduino_hal::hal::clock::MHz16;
 
 // SerialWriter構造体とimpl_fmt_write_for_serial!マクロを追加
 pub struct SerialWriter<'a, T>

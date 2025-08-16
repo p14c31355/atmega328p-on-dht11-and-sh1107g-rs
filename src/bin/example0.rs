@@ -12,27 +12,39 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::prelude::*;
 use arduino_hal::default_serial;
-use core::fmt::Write; // SerialWriterのために必要
+use embedded_hal::serial::Write;
+use embedded_hal::blocking::serial::Write as BlockingWrite; // BlockingWriteトレイトをインポートし、エイリアスを設定
+use nb; // nbクレートをインポート
 
 // SerialWriter構造体とimpl_fmt_write_for_serial!マクロを追加
-pub struct SerialWriter<'a, USART>
+pub struct SerialWriter<'a, T>
 where
-    USART: embedded_hal::serial::Write<u8>,
+    T: Write<u8>,
 {
-    serial: &'a mut USART,
+    serial: &'a mut T,
 }
 
-impl<'a, USART> SerialWriter<'a, USART>
+impl<'a, T> SerialWriter<'a, T>
 where
-    USART: embedded_hal::serial::Write<u8>,
+    T: Write<u8>,
 {
-    pub fn new(serial: &'a mut USART) -> Self {
-        Self { serial }
+    pub fn new(serial: &'a mut T) -> Self {
+        SerialWriter { serial }
     }
 }
 
-// impl_fmt_write_for_serial! マクロを正確に記述
-impl_fmt_write_for_serial!(SerialWriter<'_, avr_hal_generic::usart::Usart<arduino_hal::pac::atmega328p::Atmega, arduino_hal::pac::atmega328p::USART0, avr_hal_generic::port::Pin<avr_hal_generic::port::mode::Input, arduino_hal::port::portd::PD0>, avr_hal_generic::port::Pin<avr_hal_generic::port::mode::Output, arduino_hal::port::portd::PD1>, arduino_hal::clock::MHz16>>, write);
+impl<'a, T> core::fmt::Write for SerialWriter<'a, T>
+where
+    T: BlockingWrite<u8>, // BlockingWriteトレイトを使用
+{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        for byte in s.bytes() {
+            // nb::block!はノンブロッキング操作をブロッキングに変換
+            nb::block!(self.serial.write(byte)).map_err(|_| core::fmt::Error)?;
+        }
+        Ok(())
+    }
+}
 
 #[arduino_hal::entry]
 fn main() -> ! {

@@ -9,8 +9,7 @@ use sh1107g_rs::Sh1107g;
 use dvcdbg::prelude::*;
 use dvcdbg::scanner::scan_i2c;
 
-// マクロで UsartAdapter を定義
-adapt_serial!(@impls UsartAdapter, write_byte, <U, RX, TX, CLOCK>);
+adapt_serial!(avr_usart: UsartAdapter, write_byte);
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -18,8 +17,8 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let serial = default_serial!(dp, pins, 57600);
 
-    let mut dbg_uart = UsartAdapter(serial); // ← crate 経由ではなく直接
-    let mut logger = SerialLogger::new(&mut dbg_uart); // prelude に export されてる
+    let mut dbg_uart = UsartAdapter(serial);
+    let mut logger = SerialLogger::new(&mut dbg_uart);
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -37,7 +36,6 @@ fn main() -> ! {
     display.clear(BinaryColor::Off).unwrap();
 
     log!(logger, "Display initialized and cleared.");
-
     display.clear(BinaryColor::On).unwrap();
     display.flush().unwrap();
 

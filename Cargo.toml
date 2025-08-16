@@ -15,7 +15,7 @@ bench = false
 panic-halt = "1.0.0"
 ufmt = "0.2.0"
 nb = "1.1.0"
-embedded-hal = "1.0.0"
+embedded-hal = "0.2.7"
 embedded-dht-rs = "0.5.0"
 embedded-graphics = "0.8.1"
 dvcdbg = { version = "0.1.2", features = ["quick_diag"]}
@@ -23,6 +23,10 @@ heapless = "0.8.0"
 
 [dependencies.sh1107g-rs]
 path = "../sh1107g-rs"
+
+[dependencies.avr-hal-generic]
+git = "https://github.com/rahix/avr-hal"
+rev = "fafaf587a32a4500239fd073f89d1b9c36b48092"
 
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"
@@ -41,3 +45,6 @@ codegen-units = 1
 debug = true
 lto = true
 opt-level = "s"
+
+[features]
+logger = []

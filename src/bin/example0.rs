@@ -12,17 +12,27 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107gBuilder;
 use dvcdbg::prelude::*;
 use arduino_hal::default_serial;
+use core::fmt::Write; // SerialWriterのために必要
 
-use arduino_hal::hal::usart::Usart;
-use arduino_hal::port::{mode, Pin};
-use embedded_hal::serial::nb::Write as EmbeddedHalSerialWrite; // embedded_hal::serial::nb::Write トレイトをインポート
-use arduino_hal::pac::atmega328p::{Atmega, USART0}; // AtmegaとUSART0のパスを修正
-use arduino_hal::port::portd::{PD0, PD1}; // PD0とPD1のパスを修正
-use arduino_hal::clock::MHz16; // MHz16のパスを修正
+// SerialWriter構造体とimpl_fmt_write_for_serial!マクロを追加
+pub struct SerialWriter<'a, USART>
+where
+    USART: embedded_hal::serial::Write<u8>,
+{
+    serial: &'a mut USART,
+}
+
+impl<'a, USART> SerialWriter<'a, USART>
+where
+    USART: embedded_hal::serial::Write<u8>,
+{
+    pub fn new(serial: &'a mut USART) -> Self {
+        Self { serial }
+    }
+}
 
 // impl_fmt_write_for_serial! マクロを正確に記述
-impl_fmt_write_for_serial!(Usart<Atmega, USART0, Pin<mode::Input, PD0>, Pin<mode::Output, PD1>, MHz16>, write);
-
+impl_fmt_write_for_serial!(SerialWriter<'_, avr_hal_generic::usart::Usart<arduino_hal::pac::atmega328p::Atmega, arduino_hal::pac::atmega328p::USART0, avr_hal_generic::port::Pin<avr_hal_generic::port::mode::Input, arduino_hal::port::portd::PD0>, avr_hal_generic::port::Pin<avr_hal_generic::port::mode::Output, arduino_hal::port::portd::PD1>, arduino_hal::clock::MHz16>>, write);
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -31,7 +41,8 @@ fn main() -> ! {
     let mut delay = Delay::new();
 
     let mut serial = default_serial!(dp, pins, 57600);
-    let mut logger = SerialLogger::new(&mut serial);
+    let mut serial_writer = SerialWriter::new(&mut serial);
+    let mut logger = SerialLogger::new(&mut serial_writer);
     log!(logger, "Program Start");
 
     let i2c = arduino_hal::I2c::new(

@@ -14,15 +14,17 @@ use core::fmt::Write;
 
 use dvcdbg::scanner::scan_i2c;
 
-impl_fmt_write_for_serial!(arduino_hal::hal::usart::Usart, write_byte);
+// dvcdbg::adapt_serial!マクロを使用してUsartAdapterを定義し、core::fmt::Writeを実装
+dvcdbg::adapt_serial!(avr_usart: UsartAdapter, write_byte);
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let mut serial = default_serial!(dp, pins, 57600);
+    let serial = default_serial!(dp, pins, 57600); // serialを可変にしない
 
-    let mut logger = SerialLogger::new(&mut serial);
+    let mut dbg_uart = dvcdbg::UsartAdapter(serial); // UsartAdapterでラップ
+    let mut logger = dvcdbg::SerialLogger::new(&mut dbg_uart); // ラップされたインスタンスを使用
 
     let mut i2c = arduino_hal::I2c::new( // i2c を可変にする
         dp.TWI,

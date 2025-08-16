@@ -18,35 +18,6 @@ use arduino_hal::pac::USART0;
 use arduino_hal::port::mode::{Input, Output};
 use arduino_hal::hal::clock::MHz16;
 
-// SerialWriter構造体とimpl_fmt_write_for_serial!マクロを追加
-pub struct SerialWriter<'a, T>
-where
-    T: Write<Word = u8>,
-{
-    serial: &'a mut T,
-}
-
-impl<'a, T> SerialWriter<'a, T>
-where
-    T: Write<Word = u8>,
-{
-    pub fn new(serial: &'a mut T) -> Self {
-        SerialWriter { serial }
-    }
-}
-
-impl<'a, T> core::fmt::Write for SerialWriter<'a, T>
-where
-    T: Write<Word = u8>,
-{
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        for byte in s.bytes() {
-            // nb::block!はノンブロッキング操作をブロッキングに変換
-            nb::block!(self.serial.write(byte)).map_err(|_| core::fmt::Error)?;
-        }
-        Ok(())
-    }
-}
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -55,25 +26,17 @@ fn main() -> ! {
     let mut delay = Delay::new();
 
     let mut serial = default_serial!(dp, pins, 57600);
-    let mut serial_writer = SerialWriter::new(&mut serial);
-    let mut logger = SerialLogger::new(&mut serial_writer);
-    log!(logger, "Program Start");
-
     let i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         50000,
     );
-    log!(logger, "I2C Initialized");
 
     let mut display = Sh1107gBuilder::new(i2c).build();
-    log!(logger, "Display Builder created");
 
     display.init().unwrap();
-    log!(logger, "Display Initialized");
     display.clear(BinaryColor::Off).unwrap();
-    log!(logger, "Display Cleared");
 
     let text_style = MonoTextStyleBuilder::new()
         .font(&FONT_6X10)
@@ -83,10 +46,8 @@ fn main() -> ! {
     Text::with_baseline("Hello, World!", Point::new(0, 16), text_style, Baseline::Top)
         .draw(&mut display)
         .unwrap();
-    log!(logger, "Text Drawn");
 
     display.flush().unwrap();
-    log!(logger, "Display Flushed");
 
     loop {}
 }

@@ -9,6 +9,7 @@ use panic_halt as _;
 use sh1107g_rs::Sh1107g;
 use dvcdbg::prelude::*;
 use dvcdbg::scanner::scan_i2c;
+use embedded_io::Write;
 
 #[arduino_hal::entry]
 fn main() -> ! {

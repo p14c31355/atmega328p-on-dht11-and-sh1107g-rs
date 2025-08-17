@@ -1,12 +1,10 @@
 #![no_std]
 #![no_main]
 
-use core::convert::Infallible;
-use arduino_hal::prelude::*;
 use dvcdbg::adapt_serial;
 use core::fmt::Write;
 
-adapt_serial!(UsartAdapter, nb_write = write, error = Infallible, flush = flush);
+adapt_serial!(UsartAdapter, nb_write = write, error = core::convert::Infallible);
 
 #[arduino_hal::entry]
 fn main() -> ! {

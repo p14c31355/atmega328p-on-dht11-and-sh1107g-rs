@@ -32,7 +32,7 @@ dependencies = [
  "dvcdbg",
  "embedded-dht-rs",
  "embedded-graphics",
- "embedded-hal 0.2.7",
+ "embedded-hal 1.0.0",
  "heapless",
  "nb 1.1.0",
  "panic-halt",
@@ -118,7 +118,7 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "dvcdbg"
 version = "0.1.2"
-source = "git+https://github.com/p14c31355/dvcdbg.git?branch=hotfix%2Fdev#45d40c0638c61577bdb0ef6cd7151a21e184e2dc"
+source = "git+https://github.com/p14c31355/dvcdbg.git?branch=hotfix%2Fdev#150f3d08fbd4a1404df981108cbc9edd044f9c46"
 dependencies = [
  "embedded-hal 1.0.0",
  "heapless",

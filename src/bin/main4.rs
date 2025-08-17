@@ -10,14 +10,13 @@ use sh1107g_rs::Sh1107g;
 use dvcdbg::prelude::*;
 use dvcdbg::scanner::scan_i2c;
 
-adapt_serial!(avr_usart: UsartAdapter, write_byte, atmega328p);
-
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
     let serial = default_serial!(dp, pins, 57600);
 
+    adapt_serial!(avr_usart: UsartAdapter, serial, write_byte);
     let mut dbg_uart = UsartAdapter(serial);
     let mut logger = SerialLogger::new(&mut dbg_uart);
 

@@ -3,7 +3,7 @@
 
 use core::fmt::Write;
 use core::convert::Infallible;
-use panic_halt as _; // panic handler
+use panic_halt as _;
 use dvcdbg::adapt_serial;
 use arduino_hal::prelude::*;
 

@@ -2,12 +2,10 @@
 #![no_main]
 
 use panic_halt as _;
-use arduino_hal::prelude::*;
-use arduino_hal::Usart;
 use dvcdbg::adapt_serial;
-use core::fmt::Write;
+use core::fmt::Write as _;
 
-adapt_serial!(UsartAdapter);
+adapt_serial!(UsartAdapter, nb_write = write);
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -17,7 +15,6 @@ fn main() -> ! {
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
 
     let mut dbg_uart = UsartAdapter(serial);
-    writeln!(dbg_uart, "Hello!").ok();
-
+    writeln!(dbg_uart, "Hello from embedded-io bridge!").ok();
     loop {}
 }

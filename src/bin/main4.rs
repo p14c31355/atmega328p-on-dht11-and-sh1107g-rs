@@ -5,7 +5,7 @@ use panic_halt as _;
 use dvcdbg::adapt_serial;
 use core::fmt::Write as _;
 
-adapt_serial!(UsartAdapter, nb_write = write, error = nb::Error<Infallible>, flush = flush);
+adapt_serial!(UsartAdapter, nb_write = write, error = Infallible, flush = flush);
 
 #[arduino_hal::entry]
 fn main() -> ! {

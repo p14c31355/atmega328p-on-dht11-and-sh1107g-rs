@@ -2,10 +2,9 @@
 #![no_main]
 
 use core::convert::Infallible;
-
-use panic_halt as _;
+use arduino_hal::prelude::*;
 use dvcdbg::adapt_serial;
-use core::fmt::Write as _;
+use core::fmt::Write;
 
 adapt_serial!(UsartAdapter, nb_write = write, error = Infallible, flush = flush);
 

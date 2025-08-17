@@ -13,7 +13,6 @@ bench = false
 
 [dependencies]
 panic-halt = "1.0.0"
-ufmt = "0.2.0"
 nb = "1.1.0"
 embedded-hal = "1.0.0"
 embedded-dht-rs = "0.5.0"

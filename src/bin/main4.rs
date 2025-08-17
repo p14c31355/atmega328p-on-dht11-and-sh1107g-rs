@@ -4,6 +4,8 @@
 use core::fmt::Write;
 use panic_halt as _;
 use dvcdbg::adapt_serial;
+use nb;
+use embedded_io::Write as IoWrite;
 
 adapt_serial!(UsartAdapter, nb_write = write, flush = flush); // 正しい呼び出し
 

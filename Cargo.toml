@@ -25,6 +25,7 @@ path = "../sh1107g-rs"
 
 [dependencies.dvcdbg]
 git = "https://github.com/p14c31355/dvcdbg.git"
+branch = "hotfix/adaptAVR"
 
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"

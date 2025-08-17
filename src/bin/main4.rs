@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use panic_halt as _;
 use arduino_hal::prelude::*;
 use arduino_hal::Usart;
 use dvcdbg::adapt_serial;

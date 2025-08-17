@@ -16,7 +16,7 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let serial = default_serial!(dp, pins, 57600);
 
-    adapt_serial!(avr_usart: UsartAdapter, serial, write_byte);
+    adapt_serial!(UsartAdapter, serial, write_byte);
     let mut dbg_uart = UsartAdapter(serial);
     let mut logger = SerialLogger::new(&mut dbg_uart);
 

@@ -1,10 +1,13 @@
 #![no_std]
 #![no_main]
 
-use dvcdbg::adapt_serial;
 use core::fmt::Write;
+use core::convert::Infallible;
+use panic_halt as _; // panic handler
+use dvcdbg::adapt_serial;
+use arduino_hal::prelude::*;
 
-adapt_serial!(UsartAdapter, nb_write = write, error = core::convert::Infallible);
+adapt_serial!(UsartAdapter, nb_write = write, error = Infallible);
 
 #[arduino_hal::entry]
 fn main() -> ! {

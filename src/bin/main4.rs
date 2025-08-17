@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use core::convert::Infallible;
+
 use panic_halt as _;
 use dvcdbg::adapt_serial;
 use core::fmt::Write as _;

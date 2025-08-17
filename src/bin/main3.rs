@@ -9,9 +9,9 @@ use panic_halt as _;
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let mut serial = default_serial!(dp, pins, 57600);
+    let mut _serial = default_serial!(dp, pins, 57600);
 
-    let i2c = arduino_hal::I2c::new(
+    let _i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),

@@ -10,7 +10,7 @@ use sh1107g_rs::Sh1107g;
 use dvcdbg::prelude::*;
 use dvcdbg::scanner::scan_i2c;
 
-adapt_serial!(avr_usart: UsartAdapter, write_byte);
+adapt_serial!(avr_usart: UsartAdapter, write_byte, atmega328p);
 
 #[arduino_hal::entry]
 fn main() -> ! {

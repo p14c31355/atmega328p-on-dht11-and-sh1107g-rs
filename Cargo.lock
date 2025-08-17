@@ -118,7 +118,7 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "dvcdbg"
 version = "0.1.2"
-source = "git+https://github.com/p14c31355/dvcdbg.git#dc5a0a889f236a3a82237638fb355ef1574c2c35"
+source = "git+https://github.com/p14c31355/dvcdbg.git#21e812db8e7fdc524a2cee3d7156e184f8991575"
 dependencies = [
  "embedded-hal 1.0.0",
  "heapless",
@@ -260,9 +260,9 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.97"
+version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d61789d7719defeb74ea5fe81f2fdfdbd28a803847077cecce2ff14e1472f6f1"
+checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
 dependencies = [
  "unicode-ident",
 ]

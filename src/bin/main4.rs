@@ -4,6 +4,7 @@
 
 use arduino_hal::default_serial;
 use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::draw_target::DrawTarget;
 use panic_halt as _;
 use sh1107g_rs::Sh1107g;
 use dvcdbg::prelude::*;

@@ -6,7 +6,7 @@ use panic_halt as _;
 
 use dvcdbg::adapt_serial;
 
-adapt_serial!(UsartAdapter, nb_write = write, flush = flush); // NB1.1 + embedded-io 0.6 対応
+adapt_serial!(UsartAdapter, nb_write = write, flush = flush);
 
 #[arduino_hal::entry]
 fn main() -> ! {

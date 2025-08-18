@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "arduino-hal"
 version = "0.1.0"
-source = "git+https://github.com/rahix/avr-hal?rev=fafaf587a32a4500239fd073f89d1b9c36b48092#fafaf587a32a4500239fd073f89d1b9c36b48092"
+source = "git+https://github.com/rahix/avr-hal#6807aaf32ea99bc860393b8f0fdaf4384ca011bc"
 dependencies = [
  "atmega-hal",
  "avr-device",
@@ -18,7 +18,7 @@ dependencies = [
 [[package]]
 name = "atmega-hal"
 version = "0.1.0"
-source = "git+https://github.com/rahix/avr-hal?rev=fafaf587a32a4500239fd073f89d1b9c36b48092#fafaf587a32a4500239fd073f89d1b9c36b48092"
+source = "git+https://github.com/rahix/avr-hal#6807aaf32ea99bc860393b8f0fdaf4384ca011bc"
 dependencies = [
  "avr-device",
  "avr-hal-generic",
@@ -32,10 +32,8 @@ dependencies = [
  "dvcdbg",
  "embedded-dht-rs",
  "embedded-graphics",
- "embedded-hal 1.0.0",
  "embedded-io",
  "heapless",
- "nb 1.1.0",
  "panic-halt",
  "sh1107g-rs",
 ]
@@ -72,7 +70,7 @@ dependencies = [
 [[package]]
 name = "avr-hal-generic"
 version = "0.1.0"
-source = "git+https://github.com/rahix/avr-hal?rev=fafaf587a32a4500239fd073f89d1b9c36b48092#fafaf587a32a4500239fd073f89d1b9c36b48092"
+source = "git+https://github.com/rahix/avr-hal#6807aaf32ea99bc860393b8f0fdaf4384ca011bc"
 dependencies = [
  "avr-device",
  "embedded-hal 0.2.7",
@@ -118,7 +116,7 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "dvcdbg"
 version = "0.1.2"
-source = "git+https://github.com/p14c31355/dvcdbg.git#1271a605de457554a83b2921c812b71c814638f4"
+source = "git+https://github.com/p14c31355/dvcdbg.git#ac0c333ed2ed320571937a817fd9b4e23b47810a"
 dependencies = [
  "embedded-hal 1.0.0",
  "embedded-io",

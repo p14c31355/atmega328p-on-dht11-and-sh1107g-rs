@@ -2,15 +2,15 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
+use arduino_hal::Peripherals;
+use arduino_hal::pins;
 use panic_halt as _;
-
-use dvcdbg::logger::SerialLogger;
-use dvcdbg::scanner::scan_i2c;
+use dvcdbg::scanner::{scan_i2c, I2C_SCAN_ADDR_START, I2C_SCAN_ADDR_END};
+use dvcdbg::logger::Logger;
 use core::fmt::{Write, Result};
-use core::fmt::{Write, Result};
-use arduino_hal::Usart;
 
-struct FmtSerial<'a, U: Write>(&'a mut U);
+// ===== SerialLogger wrapper =====
+struct FmtSerial<'a, U>(&'a mut U);
 
 impl<'a, U> Write for FmtSerial<'a, U>
 where
@@ -24,24 +24,34 @@ where
     }
 }
 
+// Implement Logger trait for our wrapper
+impl<'a, U> Logger for FmtSerial<'a, U>
+where
+    U: arduino_hal::prelude::_embedded_hal_serial_Write<u8>,
+{
+    fn log(&mut self, args: core::fmt::Arguments<'_>) {
+        let _ = self.write_fmt(args);
+        let _ = self.write_str("\r\n");
+    }
+}
 
+// ===== Main entry =====
 #[arduino_hal::entry]
 fn main() -> ! {
-    let dp = arduino_hal::Peripherals::take().unwrap();
-    let mut delay = arduino_hal::Delay::new();
-    let pins = arduino_hal::pins!(dp);
+    let dp = Peripherals::take().unwrap();
+    let pins = pins!(dp);
 
-    // デフォルトシリアルを取得
+    // Serial at 57600 bps
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-        let mut fmt_serial = FmtSerial(&mut serial);
-        let mut logger = SerialLogger::new(&mut fmt_serial);
+    let mut logger = FmtSerial(&mut serial);
 
+    // I2C initialization
     let mut i2c = arduino_hal::I2c::new(dp.TWI, pins.a4, pins.a5, 100_000);
 
-scan_i2c(&mut i2c, &mut logger);
+    log!(logger, "[info] Starting I2C scan from 0x{:02X} to 0x{:02X}", I2C_SCAN_ADDR_START, I2C_SCAN_ADDR_END);
 
+    // Scan I2C bus
+    scan_i2c(&mut i2c, &mut logger);
 
-    loop {
-        delay.delay_ms(1000u16);
-    }
+    loop {}
 }

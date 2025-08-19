@@ -2,14 +2,14 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
-use panic_halt as _; // panic handler
-use dvcdbg::adapt_serial;
-use core::fmt::Write;
-use embedded_io::Write as eioWrite;
-// -------------------------
-// Serial adapter
-// -------------------------
-adapt_serial!(UsartAdapter, nb_write = write);
+use panic_halt as _;
+use dvcdbg::prelude::*;
+use dvcdbg::log; // logマクロを使用するために必要
+
+// adapt_serial! マクロで UsartAdapter に core::fmt::Write を実装
+// nb::serial::Write をラップすることで core::fmt::Write の要件を満たす
+adapt_serial!(UsartAdapter, nb_write = write_byte);
+
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -17,23 +17,24 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let mut delay = arduino_hal::Delay::new();
 
+    // デフォルトのシリアルを取得
     let pins = arduino_hal::pins!(dp);
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
 
-    // -------------------------
-    // Logger を準備
-    // -------------------------
-    let mut adapter = UsartAdapter(serial);
+    // UsartAdapter を初期化
+    let mut serial_adapter = UsartAdapter(serial);
 
-    #[cfg(feature = "logger")]
-    let mut logger = SerialLogger::new(&mut adapter);
+    // log! マクロに直接アダプタを渡す
+    log!(&mut serial_adapter, "[info] Starting main4.rs example...");
 
-    // -------------------------
-    // ログ出力
-    // -------------------------
-    writeln!(adapter, "[info] Starting main4.rs example...").ok();
+    for i in 0..10 {
+        log!(&mut serial_adapter, "[count] {}", i);
+    }
+
+    log!(&mut serial_adapter, "[info] Finished loop, entering infinite loop.");
 
     loop {
+        // 永久ループで終了しない
         delay.delay_ms(1000u16);
     }
 }

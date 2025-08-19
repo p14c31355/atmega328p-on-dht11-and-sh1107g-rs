@@ -3,38 +3,45 @@
 
 use arduino_hal::prelude::*;
 use panic_halt as _;
-use dvcdbg::prelude::*;
-use dvcdbg::log; // logマクロを使用するために必要
 
-// adapt_serial! マクロで UsartAdapter に core::fmt::Write を実装
-// nb::serial::Write をラップすることで core::fmt::Write の要件を満たす
-adapt_serial!(UsartAdapter, nb_write = write_byte);
+use dvcdbg::logger::SerialLogger;
+use dvcdbg::scanner::scan_i2c;
+use core::fmt::{Write, Result};
+use core::fmt::{Write, Result};
+use arduino_hal::Usart;
+
+struct FmtSerial<'a, U: Write>(&'a mut U);
+
+impl<'a, U> Write for FmtSerial<'a, U>
+where
+    U: arduino_hal::prelude::_embedded_hal_serial_Write<u8>,
+{
+    fn write_str(&mut self, s: &str) -> Result {
+        for &b in s.as_bytes() {
+            nb::block!(self.0.write(b)).map_err(|_| core::fmt::Error)?;
+        }
+        Ok(())
+    }
+}
 
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    // Arduino HAL 初期化
     let dp = arduino_hal::Peripherals::take().unwrap();
     let mut delay = arduino_hal::Delay::new();
-
-    // デフォルトのシリアルを取得
     let pins = arduino_hal::pins!(dp);
-    let serial = arduino_hal::default_serial!(dp, pins, 57600);
 
-    // UsartAdapter を初期化
-    let mut serial_adapter = UsartAdapter(serial);
+    // デフォルトシリアルを取得
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+        let mut fmt_serial = FmtSerial(&mut serial);
+        let mut logger = SerialLogger::new(&mut fmt_serial);
 
-    // log! マクロに直接アダプタを渡す
-    log!(&mut serial_adapter, "[info] Starting main4.rs example...");
+    let mut i2c = arduino_hal::I2c::new(dp.TWI, pins.a4, pins.a5, 100_000);
 
-    for i in 0..10 {
-        log!(&mut serial_adapter, "[count] {}", i);
-    }
+scan_i2c(&mut i2c, &mut logger);
 
-    log!(&mut serial_adapter, "[info] Finished loop, entering infinite loop.");
 
     loop {
-        // 永久ループで終了しない
         delay.delay_ms(1000u16);
     }
 }

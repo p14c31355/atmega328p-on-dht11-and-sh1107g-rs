@@ -13,16 +13,18 @@ bench = false
 
 [dependencies]
 panic-halt = "1.0.0"
-embedded-dht-rs = "0.5.0"
 embedded-graphics = "0.8.1"
 heapless = "0.8.0"
-embedded-io = "0.6.1"
+nb = "1.1.0"
+embedded-hal = "0.2.7"
+
 
 [dependencies.sh1107g-rs]
 path = "../sh1107g-rs"
 
 [dependencies.dvcdbg]
 git = "https://github.com/p14c31355/dvcdbg.git"
+features = ["ehal_0_2"]
 
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"
@@ -40,6 +42,3 @@ codegen-units = 1
 debug = true
 lto = true
 opt-level = "s"
-
-[features]
-logger = []

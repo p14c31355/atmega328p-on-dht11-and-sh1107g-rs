@@ -1,10 +1,9 @@
 #![no_std]
 #![no_main]
 
-use core::fmt::Write;
 use panic_halt as _;
-
 use dvcdbg::adapt_serial;
+use core::fmt::Write;
 
 adapt_serial!(UsartAdapter, nb_write = write, flush = flush);
 
@@ -18,7 +17,5 @@ fn main() -> ! {
     let mut dbg_uart = UsartAdapter(serial);
 
     writeln!(dbg_uart, "Hello from embedded-io bridge!").ok();
-    dbg_uart.write_all(&[0x01, 0x02, 0x03]).ok();
-
     loop {}
 }

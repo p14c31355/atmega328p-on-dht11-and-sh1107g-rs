@@ -47,4 +47,5 @@ opt-level = "s"
 
 [features]
 logger = []
+macros = []
 ehal_0_2 = []

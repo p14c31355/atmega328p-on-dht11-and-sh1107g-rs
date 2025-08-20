@@ -19,5 +19,7 @@ fn main() -> ! {
 
     writeln!(logger, "Hello from dvcdbg on Arduino Uno!").unwrap();
 
-    loop {}
+    loop {
+        arduino_hal::delay_ms(1000);
+    }
 }

@@ -121,10 +121,8 @@ version = "0.2.0"
 source = "git+https://github.com/p14c31355/dvcdbg.git#dff4f1d217174abcdcf9586b8355831c5f51ce43"
 dependencies = [
  "embedded-hal 0.2.7",
- "embedded-hal 1.0.0",
  "embedded-io",
  "heapless 0.9.1",
- "nb 1.1.0",
 ]
 
 [[package]]

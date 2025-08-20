@@ -27,6 +27,7 @@ path = "../sh1107g-rs"
 [dependencies.dvcdbg]
 git = "https://github.com/p14c31355/dvcdbg.git"
 features = ["logger", "macros", "ehal_0_2"]
+default-features = false
 
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"

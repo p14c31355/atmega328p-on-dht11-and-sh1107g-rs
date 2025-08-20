@@ -33,7 +33,7 @@ dependencies = [
  "embedded-graphics",
  "embedded-hal 0.2.7",
  "embedded-io",
- "heapless",
+ "heapless 0.9.1",
  "nb 1.1.0",
  "panic-halt",
  "sh1107g-rs",
@@ -105,9 +105,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "cfg-if"
-version = "1.0.1"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
+checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
 
 [[package]]
 name = "critical-section"
@@ -118,12 +118,12 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "dvcdbg"
 version = "0.2.0"
-source = "git+https://github.com/p14c31355/dvcdbg.git#cbaf78a3c8c7fdfd3539d8e3755935283a51d752"
+source = "git+https://github.com/p14c31355/dvcdbg.git#dff4f1d217174abcdcf9586b8355831c5f51ce43"
 dependencies = [
  "embedded-hal 0.2.7",
  "embedded-hal 1.0.0",
  "embedded-io",
- "heapless",
+ "heapless 0.9.1",
  "nb 1.1.0",
 ]
 
@@ -217,6 +217,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "heapless"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1edcd5a338e64688fbdcb7531a846cfd3476a54784dcb918a0844682bc7ada5"
+dependencies = [
+ "hash32",
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "micromath"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -283,7 +293,7 @@ dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",
  "embedded-hal 1.0.0",
- "heapless",
+ "heapless 0.8.0",
 ]
 
 [[package]]

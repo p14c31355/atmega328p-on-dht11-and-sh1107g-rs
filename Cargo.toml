@@ -14,7 +14,7 @@ bench = false
 [dependencies]
 panic-halt = "1.0.0"
 embedded-graphics = "0.8.1"
-heapless = "0.8.0"
+heapless = "0.9.1"
 nb = "1.1.0"
 embedded-hal = "0.2.7"
 embedded-io = "0.6.1"

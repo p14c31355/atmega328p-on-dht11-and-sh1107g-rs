@@ -1,7 +1,11 @@
 #![no_std]
 #![no_main]
 
-adapt_serial!(UnoWrapper);
+use panic_halt as _;
+use atmega328p_on_dht11_and_sh1107g_rs::*; // lib.rs の公開アイテムをインポート
+
+adapt_serial!(UnoWrapper); // main.rs で UnoWrapper を定義
+
 #[arduino_hal::entry]
 fn main() -> ! {
     // -------------------------------------------------------------------------

@@ -1,8 +1,10 @@
 #![no_std]
 #![no_main]
 
+use panic_halt as _;
+use atmega328p_on_dht11_and_sh1107g_rs::*; // lib.rs の公開アイテムをインポート
 
-adapt_serial!(UnoSerial);
+adapt_serial!(UnoWrapper); // UnoWrapper を定義
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -11,7 +13,7 @@ fn main() -> ! {
 
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
 
-    let mut logger = UnoSerial(serial);
+    let mut logger = UnoWrapper(serial); // UnoWrapper を使用
 
     writeln!(logger, "Hello from dvcdbg on Arduino Uno!").unwrap();
 

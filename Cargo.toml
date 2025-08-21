@@ -6,7 +6,18 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [lib]
+name = "atmega328p_on_dht11_and_sh1107g_rs"
+path = "src/lib.rs"
 doctest = false
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[[bin]]
+name = "main4"
+path = "src/bin/main4.rs"
+
 
 [dependencies]
 panic-halt = "1.0.0"

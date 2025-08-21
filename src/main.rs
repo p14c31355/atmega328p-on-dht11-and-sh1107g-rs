@@ -1,2 +1,79 @@
 #![no_std]
-fn main() {}
+#![no_main]
+
+use arduino_hal::prelude::*;
+use arduino_hal::i2c;
+use dvcdbg::prelude::*;
+use dvcdbg::logger::UfmtWrapper; // UfmtWrapper を追加
+use sh1107g_rs::{Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
+use embedded_graphics::{
+    pixelcolor::BinaryColor,
+    prelude::*,
+};
+use panic_halt as _;
+
+#[arduino_hal::entry]
+fn main() -> ! {
+    // -------------------------------------------------------------------------
+    // Arduino 初期化
+    // -------------------------------------------------------------------------
+    let dp = arduino_hal::Peripherals::take().unwrap();
+    let pins = arduino_hal::pins!(dp);
+    let mut delay = arduino_hal::Delay::new();
+
+    // I2C 100kHz
+    let i2c = i2c::I2c::new(
+        dp.TWI,
+        pins.a4.into_pull_up_input(), // SDA
+        pins.a5.into_pull_up_input(), // SCL
+        100000,
+    );
+
+    // シリアル (dvcdbg ロガー)
+    let serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut serial_wrapper = UfmtWrapper::new(serial); // UfmtWrapper でラップ
+    let mut logger = SerialLogger::new(&mut serial_wrapper); // ラップしたものを渡す
+
+    log!(logger, "[scan] start");
+    dvcdbg::scan_i2c(&mut i2c.clone(), &mut logger); // clone で一時借用
+    log!(logger, "[scan] done");
+
+    // -------------------------------------------------------------------------
+    // SH1107G ドライバ生成 + 初期化
+    // -------------------------------------------------------------------------
+    let mut oled = Sh1107gBuilder::new(i2c)
+        .clear_on_init(true)
+        .build();
+
+    oled.init().unwrap();
+    log!(logger, "[oled] init complete");
+
+    // -------------------------------------------------------------------------
+    // パターン描画テスト
+    // -------------------------------------------------------------------------
+
+    // 1. 真っ黒画面
+    oled.clear(BinaryColor::Off).unwrap();
+    oled.flush().unwrap();
+    log!(logger, "[oled] cleared (black screen)");
+    delay.delay_ms(2000);
+
+    // 2. 横ライン (y=32 に白)
+    oled.clear(BinaryColor::Off).unwrap();
+    for x in 0..DISPLAY_WIDTH {
+        let _ = oled.draw_iter([Pixel(Point::new(x as i32, 32), BinaryColor::On)]);
+    }
+    oled.flush().unwrap();
+    log!(logger, "[oled] horizontal line y=32");
+    delay.delay_ms(2000);
+
+    // 3. 縦ライン (x=64 に白)
+    oled.clear(BinaryColor::Off).unwrap();
+    for y in 0..DISPLAY_HEIGHT {
+        let _ = oled.draw_iter([Pixel(Point::new(64, y as i32), BinaryColor::On)]);
+    }
+    oled.flush().unwrap();
+    log!(logger, "[oled] vertical line x=64");
+
+    loop {}
+}

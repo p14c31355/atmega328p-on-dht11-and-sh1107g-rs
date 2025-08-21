@@ -4,7 +4,7 @@
 use arduino_hal::prelude::*;
 use arduino_hal::i2c;
 use dvcdbg::prelude::*;
-use dvcdbg::logger::UfmtWrapper; // UfmtWrapper を追加
+
 use sh1107g_rs::{Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
 use embedded_graphics::{
     pixelcolor::BinaryColor,
@@ -35,7 +35,7 @@ fn main() -> ! {
     let mut logger = SerialLogger::new(&mut serial_wrapper); // ラップしたものを渡す
 
     log!(logger, "[scan] start");
-    dvcdbg::scan_i2c(&mut i2c.clone(), &mut logger); // clone で一時借用
+    dvcdbg::scan_i2c!(&mut i2c, &mut logger); // 可変参照を渡す
     log!(logger, "[scan] done");
 
     // -------------------------------------------------------------------------

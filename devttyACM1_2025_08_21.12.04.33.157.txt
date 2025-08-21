@@ -1,0 +1,3 @@
+[scan] I2C scan start (normal)
+[scan] Scanning I2C bus...
+[error] write failed at 0x03: 

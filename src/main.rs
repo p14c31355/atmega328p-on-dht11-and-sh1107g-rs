@@ -5,13 +5,13 @@ use arduino_hal::prelude::*;
 use arduino_hal::i2c;
 use dvcdbg::prelude::*;
 use sh1107g_rs::{Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-};
+use embedded_graphics::prelude::*;
+use embedded_graphics::pixelcolor::BinaryColor;
 use panic_halt as _;
 
+// UART 用ラッパー（adapt_serial! マクロ前提）
 adapt_serial!(UnoWrapper);
+
 #[arduino_hal::entry]
 fn main() -> ! {
     // -------------------------------------------------------------------------
@@ -21,59 +21,62 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = arduino_hal::Delay::new();
 
-    // I2C 100kHz
+    // シリアル初期化（ログ用）
+    let serial = arduino_hal::default_serial!(dp, pins, 115200);
+    let mut serial_wrapper = UnoWrapper(serial);
+    let mut logger = SerialLogger::new(&mut serial_wrapper);
+
+    log!(logger, "[log] Start minimal test");
+
+    // I2C 初期化 (SDA=A4, SCL=A5, 100kHz)
     let mut i2c = i2c::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(), // SDA
-        pins.a5.into_pull_up_input(), // SCL
-        100000,
+        pins.a4.into_pull_up_input(),
+        pins.a5.into_pull_up_input(),
+        100_000,
     );
 
-    // シリアル (dvcdbg ロガー)
-    let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut serial_wrapper = UnoWrapper(serial); // UfmtWrapper でラップ
-    let mut logger = SerialLogger::new(&mut serial_wrapper); // ラップしたものを渡す
+    log!(logger, "[scan] I2C scan start");
 
-    log!(logger, "[scan] start");
-    dvcdbg::scan_i2c!(&mut i2c, &mut logger); // 可変参照を渡す
-    log!(logger, "[scan] done");
+    
+    
+        dvcdbg::scanner::scan_i2c(&mut i2c, &mut logger);
+    
+
+    log!(logger, "[scan] I2C scan done");
 
     // -------------------------------------------------------------------------
-    // SH1107G ドライバ生成 + 初期化
+    // SH1107G 初期化
     // -------------------------------------------------------------------------
     let mut oled = Sh1107gBuilder::new(i2c)
         .clear_on_init(true)
         .build();
 
-    oled.init().unwrap();
-    log!(logger, "[oled] init complete");
+    if oled.init().is_ok() {
+        log!(logger, "[oled] init complete");
+    } else {
+        log!(logger, "[oled] init failed!");
+    }
 
     // -------------------------------------------------------------------------
-    // パターン描画テスト
+    // 簡単な描画テスト
     // -------------------------------------------------------------------------
+    oled.clear(BinaryColor::Off).ok();
+    oled.flush().ok();
+    log!(logger, "[oled] cleared (black)");
 
-    // 1. 真っ黒画面
-    oled.clear(BinaryColor::Off).unwrap();
-    oled.flush().unwrap();
-    log!(logger, "[oled] cleared (black screen)");
-    delay.delay_ms(2000u16);
-
-    // 2. 横ライン (y=32 に白)
-    oled.clear(BinaryColor::Off).unwrap();
+    // 画面中央に十字ライン描画
     for x in 0..DISPLAY_WIDTH {
-        let _ = oled.draw_iter([Pixel(Point::new(x as i32, 32), BinaryColor::On)]);
+        let _ = oled.draw_iter([Pixel(Point::new(x as i32, (DISPLAY_HEIGHT/2) as i32), BinaryColor::On)]);
     }
-    oled.flush().unwrap();
-    log!(logger, "[oled] horizontal line y=32");
-    delay.delay_ms(2000u16);
-
-    // 3. 縦ライン (x=64 に白)
-    oled.clear(BinaryColor::Off).unwrap();
     for y in 0..DISPLAY_HEIGHT {
-        let _ = oled.draw_iter([Pixel(Point::new(64, y as i32), BinaryColor::On)]);
+        let _ = oled.draw_iter([Pixel(Point::new((DISPLAY_WIDTH/2) as i32, y as i32), BinaryColor::On)]);
     }
-    oled.flush().unwrap();
-    log!(logger, "[oled] vertical line x=64");
+    oled.flush().ok();
+    log!(logger, "[oled] cross line drawn");
 
-    loop {}
+    loop {
+        // 繰り返しはせず、ここで止める
+        delay.delay_ms(1000u16);
+    }
 }

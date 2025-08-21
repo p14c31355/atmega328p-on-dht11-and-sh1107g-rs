@@ -11,6 +11,7 @@ use embedded_graphics::{
 };
 use panic_halt as _;
 
+adapt_serial!(UnoWrapper);
 #[arduino_hal::entry]
 fn main() -> ! {
     // -------------------------------------------------------------------------
@@ -30,7 +31,7 @@ fn main() -> ! {
 
     // シリアル (dvcdbg ロガー)
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut serial_wrapper = UfmtWrapper::new(serial); // UfmtWrapper でラップ
+    let mut serial_wrapper = UnoWrapper(serial); // UfmtWrapper でラップ
     let mut logger = SerialLogger::new(&mut serial_wrapper); // ラップしたものを渡す
 
     log!(logger, "[scan] start");

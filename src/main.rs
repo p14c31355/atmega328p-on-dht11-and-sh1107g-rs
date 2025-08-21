@@ -22,7 +22,7 @@ fn main() -> ! {
     let mut delay = arduino_hal::Delay::new();
 
     // I2C 100kHz
-    let i2c = i2c::I2c::new(
+    let mut i2c = i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(), // SDA
         pins.a5.into_pull_up_input(), // SCL
@@ -56,7 +56,7 @@ fn main() -> ! {
     oled.clear(BinaryColor::Off).unwrap();
     oled.flush().unwrap();
     log!(logger, "[oled] cleared (black screen)");
-    delay.delay_ms(2000);
+    delay.delay_ms(2000u16);
 
     // 2. 横ライン (y=32 に白)
     oled.clear(BinaryColor::Off).unwrap();
@@ -65,7 +65,7 @@ fn main() -> ! {
     }
     oled.flush().unwrap();
     log!(logger, "[oled] horizontal line y=32");
-    delay.delay_ms(2000);
+    delay.delay_ms(2000u16);
 
     // 3. 縦ライン (x=64 に白)
     oled.clear(BinaryColor::Off).unwrap();

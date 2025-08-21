@@ -1,16 +1,6 @@
 #![no_std]
 #![no_main]
 
-use arduino_hal::prelude::*;
-use arduino_hal::i2c;
-use dvcdbg::prelude::*;
-use sh1107g_rs::{Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-};
-use panic_halt as _;
-
 adapt_serial!(UnoWrapper);
 #[arduino_hal::entry]
 fn main() -> ! {

@@ -1,11 +1,7 @@
 #![no_std]
 #![no_main]
 
-use panic_halt as _;
-use arduino_hal::prelude::*;
-use core::fmt::Write;
 
-use dvcdbg::prelude::*;
 adapt_serial!(UnoSerial);
 
 #[arduino_hal::entry]

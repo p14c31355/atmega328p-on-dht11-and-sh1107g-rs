@@ -18,7 +18,6 @@ heapless = "0.9.1"
 nb = "1.1.0"
 embedded-hal = "0.2.7"
 embedded-io = "0.6.1"
-ufmt = "0.2.0"
 
 
 [dependencies.sh1107g-rs]

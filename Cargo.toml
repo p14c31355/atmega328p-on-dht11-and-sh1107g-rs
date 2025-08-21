@@ -5,11 +5,6 @@ authors = ["Placeless <thinkoverheat@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
-[lib]
-name = "atmega328p_on_dht11_and_sh1107g_rs"
-path = "src/lib.rs"
-doctest = false
-
 [[bin]]
 name = "main"
 path = "src/main.rs"

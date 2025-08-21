@@ -117,7 +117,7 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 [[package]]
 name = "dvcdbg"
 version = "0.2.1"
-source = "git+https://github.com/p14c31355/dvcdbg.git#5bd3dbd166a2a24aa8465300e38a6114641b21b2"
+source = "git+https://github.com/p14c31355/dvcdbg.git#a7b45012f34ecfaf7112813d0fff9c7bee16e055"
 dependencies = [
  "embedded-hal 0.2.7",
  "embedded-io",

@@ -46,10 +46,10 @@ fn main() -> ! {
     // バッファから少しずつシリアルに出力
     let chunk_size = 64;
     let buf = buf_logger.buffer();
-    for b in buf.bytes() {
-        serial_wrapper.0.write(b).unwrap();
+    for &b in buf_logger.buffer().as_bytes() {
+        nb::block!(serial_wrapper.0.write(b)).ok();
     }
-    serial_wrapper.0.flush().ok(); // もし flush があれば
+
 
     loop {
         delay.delay_ms(1000u16);

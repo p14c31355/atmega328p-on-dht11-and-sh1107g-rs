@@ -16,7 +16,7 @@ fn main() -> ! {
     let mut delay = arduino_hal::Delay::new();
 
     // UART
-    let serial = arduino_hal::default_serial!(dp, pins, 115200);
+    let serial = arduino_hal::default_serial!(dp, pins, 9600);
     let mut serial_wrapper = UnoSerial(serial);
     let mut logger = SerialLogger::new(&mut serial_wrapper);
 
@@ -28,6 +28,9 @@ fn main() -> ! {
         100_000,
     );
 
+    log!(logger, "Hello, world!");
+    log!(logger, "テスト");
+    log!(logger, "0x48 0x65 0x6C 0x6C 0x6F"); // "Hello"
     log!(logger, "[scan] I2C scan start (normal)");
     dvcdbg::scanner::scan_i2c(&mut i2c, &mut logger);
     log!(logger, "[scan] normal scan done");

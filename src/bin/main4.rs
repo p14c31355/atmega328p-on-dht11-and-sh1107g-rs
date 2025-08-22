@@ -45,10 +45,11 @@ fn main() -> ! {
 
     // バッファから少しずつシリアルに出力
     let chunk_size = 64;
-    let buf = buf_logger.buffer().as_bytes();
-    for chunk in buf.chunks(chunk_size) {
-        serial_wrapper.write(chunk).unwrap();
+    let buf = buf_logger.buffer();
+    for b in buf.bytes() {
+        serial_wrapper.0.write(b).unwrap();
     }
+    serial_wrapper.0.flush().ok(); // もし flush があれば
 
     loop {
         delay.delay_ms(1000u16);

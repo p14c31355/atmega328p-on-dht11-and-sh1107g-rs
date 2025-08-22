@@ -7,7 +7,34 @@ use arduino_hal::i2c;
 use core::fmt::Write;
 
 use dvcdbg::prelude::*;
+
 adapt_serial!(UnoSerial);
+
+/// ヘルパー関数：BufferedLogger の内容をシリアルに出力
+fn flush_logger<W: dvcdbg::prelude::SerialCompat>(logger: &dvcdbg::logger::BufferedLogger<256>, serial: &mut W) {
+    for &b in logger.buffer().as_bytes() {
+        // nb::block! は Result<T, nb::Error<E>> を返すので、match で処理する
+        match nb::block!(serial.write(&[b])) {
+            Ok(_) => {}, // 成功時は何もしない
+            Err(nb::Error::WouldBlock) => {
+                // WouldBlock エラーは、ノンブロッキング操作がまだ完了していないことを示す。
+                // このコンテキストでは、ブロックするまで待つ nb::block! を使っているので、
+                // ここに到達することはないはずだが、念のため含める。
+            },
+            Err(nb::Error::Other(_e)) => {
+                // その他のエラーは、シリアル通信で発生した実際のエラー。
+                // ここではエラーを無視するが、実際にはエラーハンドリングを検討すべき。
+            }
+        }
+    }
+    // serial.flush() も Result を返すので、同様に処理する
+    match serial.flush() {
+        Ok(_) => {},
+        Err(_e) => {
+            // フラッシュエラーも無視する
+        }
+    }
+}
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -15,15 +42,19 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = arduino_hal::Delay::new();
 
-    // UART
+    // UART 初期化
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoSerial(serial);
-    writeln!(serial_wrapper, "Hello, world!").unwrap();
 
-    // BufferedLogger に書き込む
-    let mut buf_logger: dvcdbg::logger::BufferedLogger<512> = dvcdbg::logger::BufferedLogger::new();
+    // BufferedLogger 作成
+    let mut logger = dvcdbg::logger::BufferedLogger::<256>::new();
 
-    // I2C
+    // 通常ログ
+    log!(logger, "Hello, world!");
+    log!(logger, "テスト: 0x48 0x65 0x6C 0x6C 0x6F");
+    flush_logger(&logger, &mut serial_wrapper.0);
+
+    // I2C 初期化
     let mut i2c = i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
@@ -31,25 +62,24 @@ fn main() -> ! {
         100_000,
     );
 
-    log!(buf_logger, "テスト");
-    log!(buf_logger, "0x48 0x65 0x6C 0x6C 0x6F"); // "Hello"
-    log!(buf_logger, "[scan] I2C scan start (normal)");
-    dvcdbg::scanner::scan_i2c(&mut i2c, &mut buf_logger);
-    log!(buf_logger, "[scan] normal scan done");
+    // I2C スキャン（リアルタイムログ）
+    log!(logger, "[scan] I2C scan start");
+    flush_logger(&logger, &mut serial_wrapper.0);
+
+    dvcdbg::scanner::scan_i2c(&mut i2c, &mut logger);
+
+    log!(logger, "[scan] normal scan done");
+    flush_logger(&logger, &mut serial_wrapper.0);
 
     // 初期化コマンド応答スキャン
     let init_sequence: [u8; 3] = [0xAE, 0xA1, 0xAF];
-    log!(buf_logger, "[scan] init sequence test start");
-    dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut buf_logger, &init_sequence);
-    log!(buf_logger, "[scan] init sequence test done");
+    log!(logger, "[scan] init sequence test start");
+    flush_logger(&logger, &mut serial_wrapper.0);
 
-    // バッファから少しずつシリアルに出力
-    let chunk_size = 64;
-    let buf = buf_logger.buffer();
-    for &b in buf_logger.buffer().as_bytes() {
-        let _ = dvcdbg::prelude::SerialCompat::write(&mut serial_wrapper.0, &[b])
-            .ok();
-    }
+    dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, &init_sequence);
+
+    log!(logger, "[scan] init sequence test done");
+    flush_logger(&logger, &mut serial_wrapper.0);
 
     loop {
         delay.delay_ms(1000u16);

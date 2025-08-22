@@ -28,7 +28,7 @@ path = "../sh1107g-rs"
 
 [dependencies.dvcdbg]
 git = "https://github.com/p14c31355/dvcdbg.git"
-features = ["logger", "macros", "ehal_0_2", "scanner"]
+features = ["macros", "ehal_0_2", "scanner"]
 default-features = false
 
 [dependencies.arduino-hal]

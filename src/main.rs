@@ -23,11 +23,11 @@ fn main() -> ! {
     let mut delay = arduino_hal::Delay::new();
 
     // シリアル初期化（ログ用）
-    let serial = arduino_hal::default_serial!(dp, pins, 115200);
+    let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
 
-    writeln!(serial_wrapper, "[log] Start minimal test").ok();
-
+    writeln!(serial_wrapper, "[log] Start minimal test").unwrap();
+    delay.delay_ms(10u16);
     // I2C 初期化 (SDA=A4, SCL=A5, 100kHz)
     let mut i2c = i2c::I2c::new(
         dp.TWI,
@@ -36,9 +36,9 @@ fn main() -> ! {
         100_000,
     );
 
-    writeln!(serial_wrapper, "[scan] I2C scan start").ok();
+    writeln!(serial_wrapper, "[scan] I2C scan start").unwrap();
     dvcdbg::scanner::scan_i2c(&mut i2c, &mut serial_wrapper);
-    writeln!(serial_wrapper, "[scan] I2C scan done").ok();
+    writeln!(serial_wrapper, "[scan] I2C scan done").unwrap();
 
     // -------------------------------------------------------------------------
     // SH1107G 初期化
@@ -48,9 +48,9 @@ fn main() -> ! {
         .build();
 
     if oled.init().is_ok() {
-        writeln!(serial_wrapper, "[oled] init complete").ok();
+        writeln!(serial_wrapper, "[oled] init complete").unwrap();
     } else {
-        writeln!(serial_wrapper, "[oled] init failed!").ok();
+        writeln!(serial_wrapper, "[oled] init failed!").unwrap();
     }
 
     // -------------------------------------------------------------------------
@@ -58,7 +58,7 @@ fn main() -> ! {
     // -------------------------------------------------------------------------
     oled.clear(BinaryColor::Off).ok();
     oled.flush().ok();
-    writeln!(serial_wrapper, "[oled] cleared (black)").ok();
+    writeln!(serial_wrapper, "[oled] cleared (black)").unwrap();
 
     // 画面中央に十字ライン描画
     for x in 0..DISPLAY_WIDTH {
@@ -68,7 +68,7 @@ fn main() -> ! {
         let _ = oled.draw_iter([Pixel(Point::new((DISPLAY_WIDTH/2) as i32, y as i32), BinaryColor::On)]);
     }
     oled.flush().ok();
-    writeln!(serial_wrapper, "[oled] cross line drawn").ok();
+    writeln!(serial_wrapper, "[oled] cross line drawn").unwrap();
 
     loop {
         delay.delay_ms(1000u16);

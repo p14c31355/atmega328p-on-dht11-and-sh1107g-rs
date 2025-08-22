@@ -16,10 +16,10 @@ fn main() -> ! {
     let mut delay = arduino_hal::Delay::new();
 
     // UART
-    let serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let serial = arduino_hal::default_serial!(dp, pins, 115200);
     let mut serial_wrapper = UnoSerial(serial);
-    writeln!(serial_wrapper, "Hello, world!").unwrap(); // 行を移動
-    let mut logger = SerialLogger::new(&mut serial_wrapper);
+    writeln!(serial_wrapper, "Hello, world!").unwrap();
+    let mut serial_logger = SerialLogger::new(&mut serial_wrapper);
 
     // I2C
     let mut i2c = i2c::I2c::new(
@@ -29,19 +29,25 @@ fn main() -> ! {
         100_000,
     );
 
-    log!(logger, "テスト");
-    log!(logger, "0x48 0x65 0x6C 0x6C 0x6F"); // "Hello"
-    log!(logger, "[scan] I2C scan start (normal)");
-    dvcdbg::scanner::scan_i2c(&mut i2c, &mut logger);
-    log!(logger, "[scan] normal scan done");
+    // BufferedLogger にためる
+    let mut buf_logger: dvcdbg::logger::BufferedLogger<512> = dvcdbg::logger::BufferedLogger::new();
+
+    log!(buf_logger, "テスト");
+    log!(buf_logger, "0x48 0x65 0x6C 0x6C 0x6F"); // "Hello"
+    log!(buf_logger, "[scan] I2C scan start (normal)");
+    dvcdbg::scanner::scan_i2c(&mut i2c, &mut buf_logger);
+    log!(buf_logger, "[scan] normal scan done");
 
     // -------------------------------------------------------------------------
     // 初期化コマンド応答スキャン
     // -------------------------------------------------------------------------
-    let init_sequence: [u8; 3] = [0xAE, 0xA1, 0xAF]; // 例：Display Off, Segment Remap, Display On
-    log!(logger, "[scan] init sequence test start");
-    dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, &init_sequence);
-    log!(logger, "[scan] init sequence test done");
+    let init_sequence: [u8; 3] = [0xAE, 0xA1, 0xAF]; // Display Off, Segment Remap, Display On
+    log!(buf_logger, "[scan] init sequence test start");
+    dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut buf_logger, &init_sequence);
+    log!(buf_logger, "[scan] init sequence test done");
+
+    // BufferedLogger の内容を Serial にまとめて出力
+    serial_wrapper.write_str(buf_logger.buffer()).unwrap();
 
     loop {
         delay.delay_ms(1000u16);

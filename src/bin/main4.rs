@@ -47,11 +47,7 @@ fn main() -> ! {
     let chunk_size = 64;
     let buf = buf_logger.buffer();
     for &b in buf_logger.buffer().as_bytes() {
-        let _ = nb::block!(dvcdbg::prelude::SerialCompat::write(&mut serial_wrapper.0, &[b]))
-            .map_err(|e: nb::Error<dvcdbg::prelude::CompatErr<Infallible>>| match e {
-                nb::Error::WouldBlock => unreachable!(), // nb::block!が処理するため
-                nb::Error::Other(err) => err,
-            })
+        let _ = dvcdbg::prelude::SerialCompat::write(&mut serial_wrapper.0, &[b])
             .ok();
     }
 

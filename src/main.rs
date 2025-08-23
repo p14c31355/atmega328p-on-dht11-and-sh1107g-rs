@@ -30,23 +30,19 @@ fn main() -> ! {
         100_000,
     );
 
-    // UART 初期化
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
     writeln!(serial_wrapper, "[log] SH1107G demo start").ok();
 
-    // I2C デバイススキャン
-    scan_i2c(&mut i2c, &mut serial_wrapper);
+    // scan_i2c(&mut i2c, &mut serial_wrapper);
 
     // SH1107G 初期化
     let mut display = Sh1107gBuilder::new(i2c).build();
     display.init().unwrap();
     display.clear_buffer();
 
-    // embedded-graphics で描画
     let style_on = PrimitiveStyle::with_fill(BinaryColor::On);
 
-    // 十字
     Line::new(Point::new(0, 64), Point::new(127, 64))
         .into_styled(style_on)
         .draw(&mut display)
@@ -57,18 +53,15 @@ fn main() -> ! {
         .draw(&mut display)
         .unwrap();
 
-    // 四角
     Rectangle::new(Point::new(20, 20), Size::new(40, 40))
         .into_styled(style_on)
         .draw(&mut display)
         .unwrap();
 
-    // OLED に反映
+    // flush を 32 バイト単位に制限
     display.flush().unwrap();
 
     writeln!(serial_wrapper, "[oled] drawing done").ok();
 
-    loop {
-        delay.delay_ms(1000u16);
-    }
+    loop { delay.delay_ms(1000u16); }
 }

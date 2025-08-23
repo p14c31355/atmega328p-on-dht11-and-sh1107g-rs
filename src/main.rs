@@ -15,7 +15,7 @@ adapt_serial!(UnoWrapper);
 
 const DISPLAY_WIDTH: usize = 128;
 const DISPLAY_HEIGHT: usize = 128;
-const PAGE_HEIGHT: usize = 8; // SH1107 ページ単位
+const PAGE_HEIGHT: usize = 8;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -23,9 +23,6 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = arduino_hal::Delay::new();
 
-    // -------------------------
-    // I2C 初期化
-    // -------------------------
     let mut i2c = i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
@@ -33,75 +30,74 @@ fn main() -> ! {
         100_000,
     );
 
-    // -------------------------
-    // UART 初期化
-    // -------------------------
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
+    writeln!(serial_wrapper, "[log] Start UNO + SH1107G").unwrap();
 
-    writeln!(serial_wrapper, "[log] Start Uno + SH1107G test").unwrap();
-
-    // -------------------------
-    // I2C デバイススキャン
-    // -------------------------
-    scan_i2c(&mut i2c, &mut serial_wrapper);
-
-    // -------------------------
-    // OLED 初期化
-    // -------------------------
     let address = 0x3C;
-    let init_sequence: &[u8] = &[
-        0xAE, 0xDC, 0x00, 0x81, 0x2F, 0x20, 0xA0, 0xC0, 0xA4,
-        0xA6, 0xA8, 0x7F, 0xD3, 0x60, 0xD5, 0x51, 0xD9, 0x22,
-        0xDB, 0x35, 0xAD, 0x8A, 0xAF,
+
+    // -----------------------------
+    // 安定した I2C 初期化シーケンス
+    // -----------------------------
+    let init_sequence: &[(u8, &[u8])] = &[
+        (0x00, &[0xAE]),             // Display OFF
+        (0x00, &[0xDC, 0x00]),       // Display start line
+        (0x00, &[0x81, 0x2F]),       // Contrast
+        (0x00, &[0x20, 0x02]),       // Memory addressing mode: page
+        (0x00, &[0xA0]),             // Segment remap normal
+        (0x00, &[0xC0]),             // Common output scan direction normal
+        (0x00, &[0xA4]),             // Entire display ON from RAM
+        (0x00, &[0xA6]),             // Normal display
+        (0x00, &[0xA8, 0x7F]),       // Multiplex ratio
+        (0x00, &[0xD3, 0x60]),       // Display offset
+        (0x00, &[0xD5, 0x51]),       // Oscillator frequency
+        (0x00, &[0xD9, 0x22]),       // Pre-charge period
+        (0x00, &[0xDB, 0x35]),       // VCOM deselect level
+        (0x00, &[0xAD, 0x8A]),       // DC-DC control
+        (0x00, &[0xAF]),             // Display ON
     ];
 
-    // 初期化コマンドはまとめて送信（64バイト以内）
-    i2c.write(address, init_sequence).ok();
-    delay.delay_ms(10u16); // バス安定化
-    writeln!(serial_wrapper, "[oled] init done").unwrap();
-
-    // -------------------------
-    // ページ単位クロス描画
-    // -------------------------
-    let mut page_buf = [0u8; DISPLAY_WIDTH]; // ページバッファ 128バイト
-
-    for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
-        // ページ切替コマンド
-        let page_cmds = [0xB0 + page as u8, 0x00, 0x10];
-        i2c.write(address, &page_cmds).ok();
-
-        // 横線
-        for x in 0..DISPLAY_WIDTH {
-            page_buf[x] = if page == (DISPLAY_HEIGHT / 2 / PAGE_HEIGHT) { 0xFF } else { 0x00 };
-        }
-
-        // データ開始
-        i2c.write(address, &[0x40]).ok();
-
-        // ページバッファ送信を 64バイトずつ
-        for chunk in page_buf.chunks(64) {
-            i2c.write(address, chunk).ok();
-        }
+    for (ctrl, cmds) in init_sequence {
+        let mut payload: heapless::Vec<u8, 16> = heapless::Vec::new();
+        payload.push(*ctrl).ok();
+        payload.extend_from_slice(cmds).ok();
+        i2c.write(address, &payload).ok();
+        delay.delay_ms(5u16);
     }
 
-    // 縦線もページ単位で送信
-    for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
-        let mut page_buf = [0u8; DISPLAY_WIDTH];
+    writeln!(serial_wrapper, "[oled] init done").unwrap();
 
-        for y_in_page in 0..PAGE_HEIGHT {
-            let global_y = page * PAGE_HEIGHT + y_in_page;
-            if global_y == DISPLAY_HEIGHT / 2 {
-                page_buf[DISPLAY_WIDTH / 2] = 0xFF;
+    // -----------------------------
+    // ページ単位でクロス描画
+    // -----------------------------
+    let mut page_buf: [u8; DISPLAY_WIDTH] = [0; DISPLAY_WIDTH];
+
+    for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
+        // 横線
+        if page == (DISPLAY_HEIGHT / 2 / PAGE_HEIGHT) {
+            for x in 0..DISPLAY_WIDTH {
+                page_buf[x] = 0xFF;
+            }
+        } else {
+            for x in 0..DISPLAY_WIDTH {
+                page_buf[x] = 0x00;
             }
         }
+        i2c.write(address, &[0xB0 + page as u8]).ok(); // ページアドレス
+        i2c.write(address, &[0x00, 0x10]).ok();       // 列アドレス
+        i2c.write(address, &[0x40]).ok();             // データバイト開始
+        i2c.write(address, &page_buf).ok();
+    }
 
-        let page_cmds = [0xB0 + page as u8, 0x00, 0x10];
-        i2c.write(address, &page_cmds).ok();
+    // 縦線
+    for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
+        page_buf = [0; DISPLAY_WIDTH];
+        let y_in_page = DISPLAY_HEIGHT / 2 % PAGE_HEIGHT;
+        page_buf[DISPLAY_WIDTH / 2] = 1 << y_in_page;
+        i2c.write(address, &[0xB0 + page as u8]).ok();
+        i2c.write(address, &[0x00, 0x10]).ok();
         i2c.write(address, &[0x40]).ok();
-        for chunk in page_buf.chunks(64) {
-            i2c.write(address, chunk).ok();
-        }
+        i2c.write(address, &page_buf).ok();
     }
 
     writeln!(serial_wrapper, "[oled] cross drawn").unwrap();

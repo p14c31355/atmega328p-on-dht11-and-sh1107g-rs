@@ -10,7 +10,12 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use panic_halt as _;
 use embedded_io::Write;
 
-// UART 用ラッパー
+struct UnoWrapper;
+impl SerialCompat for UnoWrapper {
+    type Error = core::convert::Infallible;
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> { Ok(()) }
+    fn flush(&mut self) -> Result<(), Self::Error> { Ok(()) }
+}
 adapt_serial!(UnoWrapper);
 
 #[arduino_hal::entry]
@@ -37,7 +42,7 @@ fn main() -> ! {
     );
 
     writeln!(serial_wrapper, "[scan] I2C scan start").unwrap();
-    dvcdbg::scanner::scan_i2c(&mut i2c, &mut serial_wrapper);
+    scan_i2c(&mut i2c, &mut serial_wrapper);
     writeln!(serial_wrapper, "[scan] I2C scan done").unwrap();
 
     // -------------------------------------------------------------------------

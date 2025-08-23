@@ -96,7 +96,7 @@ fn main() -> ! {
         for y_in_page in 0..PAGE_HEIGHT {
             let global_y = page * PAGE_HEIGHT + y_in_page;
             if global_y == DISPLAY_HEIGHT / 2 {
-                page_buf[DISPLAY_WIDTH / 2] = 0xFF;
+                page_buf[DISPLAY_WIDTH / 2] = 0x00;
             }
         }
 
@@ -114,5 +114,5 @@ fn main() -> ! {
 
     writeln!(serial_wrapper, "[oled] cross drawn").unwrap();
 
-    loop { delay.delay_ms(1000u16); }
+    loop {} 
 }

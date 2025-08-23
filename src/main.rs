@@ -3,7 +3,7 @@
 
 use arduino_hal::prelude::*;
 use arduino_hal::i2c;
-use dvcdbg::{adapt_serial, scanner::scan_i2c};
+use dvcdbg::{adapt_serial};
 use embedded_io::Write;
 use panic_halt as _;
 
@@ -12,7 +12,7 @@ adapt_serial!(UnoWrapper);
 const DISPLAY_WIDTH: usize = 128;
 const DISPLAY_HEIGHT: usize = 128;
 const PAGE_HEIGHT: usize = 8;
-const COLUMN_OFFSET: usize = 2; // SH1107G の左右マージン
+const COLUMN_OFFSET: usize = 2;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -33,64 +33,56 @@ fn main() -> ! {
     let mut serial_wrapper = UnoWrapper(serial);
     writeln!(serial_wrapper, "[log] Start SH1107G test").unwrap();
 
-    // SH1107G 初期化（簡略版）
+    // SH1107G 初期化
     let address = 0x3C;
-    let init_sequence: &[(u8, &[u8])] = &[
-        (0x00, &[0xAE]),             // Display OFF
-        (0x00, &[0xDC, 0x00]),       // Display start line
-        (0x00, &[0x81, 0x2F]),       // Contrast
-        (0x00, &[0x20, 0x02]),       // Memory addressing mode: page
-        (0x00, &[0xA0]),             // Segment remap normal
-        (0x00, &[0xC0]),             // Common output scan direction normal
-        (0x00, &[0xA4]),             // Entire display ON from RAM
-        (0x00, &[0xA6]),             // Normal display
-        (0x00, &[0xA8, 0x7F]),       // Multiplex ratio
-        (0x00, &[0xD3, 0x60]),       // Display offset
-        (0x00, &[0xD5, 0x51]),       // Oscillator frequency
-        (0x00, &[0xD9, 0x22]),       // Pre-charge period
-        (0x00, &[0xDB, 0x35]),       // VCOM deselect level
-        (0x00, &[0xAD, 0x8A]),       // DC-DC control
-        (0x00, &[0xAF]),             // Display ON
+    let init_sequence: &[u8] = &[
+        0xAE, 0xDC, 0x00, 0x81, 0x2F, 0x20, 0x02, 0xA0,
+        0xC0, 0xA4, 0xA6, 0xA8, 0x7F, 0xD3, 0x60, 0xD5,
+        0x51, 0xD9, 0x22, 0xDB, 0x35, 0xAD, 0x8A, 0xAF
     ];
 
-    for (ctrl, cmds) in init_sequence {
-        let mut payload: heapless::Vec<u8, 16> = heapless::Vec::new();
-        payload.push(*ctrl).ok();
-        payload.extend_from_slice(cmds).ok();
-        i2c.write(address, &payload).ok();
-        delay.delay_ms(5u16);
+    for cmd in init_sequence {
+        // コマンドごとに制御バイト0x00で送信
+        i2c.write(address, &[0x00, *cmd]).ok();
+        delay.delay_ms(1u16);
     }
     writeln!(serial_wrapper, "[oled] init done").unwrap();
 
-    // 十字描画バッファ（ページ単位）
-    let mut page_buf: [u8; DISPLAY_WIDTH + COLUMN_OFFSET] = [0; DISPLAY_WIDTH + COLUMN_OFFSET];
+    // ページバッファ
+    let mut page_buf: [u8; DISPLAY_WIDTH] = [0; DISPLAY_WIDTH];
 
+    // 十字描画（横線）
     for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
-        // 横線
         for x in 0..DISPLAY_WIDTH {
-            page_buf[COLUMN_OFFSET + x] = if page == (DISPLAY_HEIGHT / 2 / PAGE_HEIGHT) { 0xFF } else { 0x00 };
+            page_buf[x] = if page == (DISPLAY_HEIGHT / 2 / PAGE_HEIGHT) { 0xFF } else { 0x00 };
         }
-        i2c.write(address, &[0xB0 + page as u8]).ok(); // ページアドレス
+
+        i2c.write(address, &[0xB0 + page as u8]).ok();         // ページ
         i2c.write(address, &[0x00 + COLUMN_OFFSET as u8]).ok(); // 列下位
-        i2c.write(address, &[0x10]).ok(); // 列上位
-        i2c.write(address, &[0x40]).ok(); // データ開始
-        i2c.write(address, &page_buf).ok();
+        i2c.write(address, &[0x10]).ok();                     // 列上位
+        i2c.write(address, &[0x40]).ok();                     // データ開始
+        // 64バイトずつ送信
+        for chunk in page_buf.chunks(64) {
+            i2c.write(address, chunk).ok();
+        }
     }
 
-    // 縦線（ページ単位）
+    // 十字描画（縦線）
     for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
-        page_buf = [0; DISPLAY_WIDTH + COLUMN_OFFSET];
+        page_buf = [0; DISPLAY_WIDTH];
         for y_in_page in 0..PAGE_HEIGHT {
             let global_y = page * PAGE_HEIGHT + y_in_page;
             if global_y == DISPLAY_HEIGHT / 2 {
-                page_buf[COLUMN_OFFSET + DISPLAY_WIDTH / 2] = 0xFF;
+                page_buf[DISPLAY_WIDTH / 2] = 0xFF;
             }
         }
         i2c.write(address, &[0xB0 + page as u8]).ok();
         i2c.write(address, &[0x00 + COLUMN_OFFSET as u8]).ok();
         i2c.write(address, &[0x10]).ok();
         i2c.write(address, &[0x40]).ok();
-        i2c.write(address, &page_buf).ok();
+        for chunk in page_buf.chunks(64) {
+            i2c.write(address, chunk).ok();
+        }
     }
 
     writeln!(serial_wrapper, "[oled] cross drawn").unwrap();

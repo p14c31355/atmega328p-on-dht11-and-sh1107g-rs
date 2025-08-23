@@ -121,7 +121,6 @@ dependencies = [
  "embedded-hal 0.2.7",
  "embedded-io",
  "heapless 0.9.1",
- "nb 1.1.0",
 ]
 
 [[package]]

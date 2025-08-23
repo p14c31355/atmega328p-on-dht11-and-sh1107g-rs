@@ -34,18 +34,12 @@ fn main() -> ! {
     // -------------------------
     // I2C 初期化
     // -------------------------
-    let mut i2c = match i2c::I2c::new(
+    let mut i2c = i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         100_000,
-    ) {
-        Ok(bus) => bus,
-        Err(_) => {
-            writeln!(serial_wrapper, "[error] I2C init failed!").ok();
-            panic!(); // ここで止めてログ確認
-        }
-    };
+    );
 
     writeln!(serial_wrapper, "[scan] I2C scan start").ok();
 

@@ -9,11 +9,6 @@ license = "MIT OR Apache-2.0"
 name = "main"
 path = "src/main.rs"
 
-[[bin]]
-name = "main4"
-path = "src/bin/main4.rs"
-
-
 [dependencies]
 panic-halt = "1.0.0"
 embedded-graphics = "0.8.1"

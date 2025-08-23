@@ -3,26 +3,17 @@
 
 use arduino_hal::prelude::*;
 use arduino_hal::i2c;
-use dvcdbg::prelude::*;
+use dvcdbg::{prelude::*, adapt_serial}; // マクロをuse
 use sh1107g_rs::{Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
 use embedded_graphics::prelude::*;
 use embedded_graphics::pixelcolor::BinaryColor;
 use panic_halt as _;
 use embedded_io::Write;
 
-struct UnoWrapper;
-impl SerialCompat for UnoWrapper {
-    type Error = core::convert::Infallible;
-    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> { Ok(()) }
-    fn flush(&mut self) -> Result<(), Self::Error> { Ok(()) }
-}
-adapt_serial!(UnoWrapper);
+adapt_serial!(UnoWrapper); // struct UnoWrapper<T>(pub T);
 
 #[arduino_hal::entry]
 fn main() -> ! {
-    // -------------------------------------------------------------------------
-    // Arduino 初期化
-    // -------------------------------------------------------------------------
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
     let mut delay = arduino_hal::Delay::new();
@@ -31,8 +22,8 @@ fn main() -> ! {
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
 
-    writeln!(serial_wrapper, "[log] Start minimal test").unwrap();
-    delay.delay_ms(10u16);
+    writeln!(serial_wrapper, "[log] Start minimal test").ok();
+
     // I2C 初期化 (SDA=A4, SCL=A5, 100kHz)
     let mut i2c = i2c::I2c::new(
         dp.TWI,
@@ -41,31 +32,26 @@ fn main() -> ! {
         100_000,
     );
 
-    writeln!(serial_wrapper, "[scan] I2C scan start").unwrap();
-    scan_i2c(&mut i2c, &mut serial_wrapper);
-    writeln!(serial_wrapper, "[scan] I2C scan done").unwrap();
+    writeln!(serial_wrapper, "[scan] I2C scan start").ok();
+    dvcdbg::scanner::scan_i2c(&mut i2c, &mut serial_wrapper);
+    writeln!(serial_wrapper, "[scan] I2C scan done").ok();
 
-    // -------------------------------------------------------------------------
     // SH1107G 初期化
-    // -------------------------------------------------------------------------
     let mut oled = Sh1107gBuilder::new(i2c)
         .clear_on_init(true)
         .build();
 
     if oled.init().is_ok() {
-        writeln!(serial_wrapper, "[oled] init complete").unwrap();
+        writeln!(serial_wrapper, "[oled] init complete").ok();
     } else {
-        writeln!(serial_wrapper, "[oled] init failed!").unwrap();
+        writeln!(serial_wrapper, "[oled] init failed!").ok();
     }
 
-    // -------------------------------------------------------------------------
-    // 簡単な描画テスト
-    // -------------------------------------------------------------------------
+    // 画面クリアと描画
     oled.clear(BinaryColor::Off).ok();
     oled.flush().ok();
-    writeln!(serial_wrapper, "[oled] cleared (black)").unwrap();
+    writeln!(serial_wrapper, "[oled] cleared (black)").ok();
 
-    // 画面中央に十字ライン描画
     for x in 0..DISPLAY_WIDTH {
         let _ = oled.draw_iter([Pixel(Point::new(x as i32, (DISPLAY_HEIGHT/2) as i32), BinaryColor::On)]);
     }
@@ -73,7 +59,7 @@ fn main() -> ! {
         let _ = oled.draw_iter([Pixel(Point::new((DISPLAY_WIDTH/2) as i32, y as i32), BinaryColor::On)]);
     }
     oled.flush().ok();
-    writeln!(serial_wrapper, "[oled] cross line drawn").unwrap();
+    writeln!(serial_wrapper, "[oled] cross line drawn").ok();
 
     loop {
         delay.delay_ms(1000u16);

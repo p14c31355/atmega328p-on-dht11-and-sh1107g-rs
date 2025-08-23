@@ -35,28 +35,30 @@ fn main() -> ! {
 
     // SH1107G 初期化（簡略版）
     let address = 0x3C;
-    let init_sequence: &[u8] = &[
-        0xAE,             // Display OFF
-        0xDC, 0x00,       // Display start line
-        0x81, 0x2F,       // Contrast
-        0x20,             // Memory addressing mode: page
-        0xA0,             // Segment remap normal
-        0xC0,             // Common output scan direction normal
-        0xA4,             // Entire display ON from RAM
-        0xA6,             // Normal display
-        0xA8, 0x7F,       // Multiplex ratio 128
-        0xD3, 0x60,       // Display offset
-        0xD5, 0x51,       // Oscillator frequency
-        0xD9, 0x22,       // Pre-charge period
-        0xDB, 0x35,       // VCOM deselect level
-        0xAD, 0x8A,       // DC-DC control
-        0xDA, 0x12,       // COM pins
-        0xAF,             // Display ON
+    let init_sequence: &[(u8, &[u8])] = &[
+        (0x00, &[0xAE]),             // Display OFF
+        (0x00, &[0xDC, 0x00]),       // Display start line
+        (0x00, &[0x81, 0x2F]),       // Contrast
+        (0x00, &[0x20, 0x02]),       // Memory addressing mode: page
+        (0x00, &[0xA0]),             // Segment remap normal
+        (0x00, &[0xC0]),             // Common output scan direction normal
+        (0x00, &[0xA4]),             // Entire display ON from RAM
+        (0x00, &[0xA6]),             // Normal display
+        (0x00, &[0xA8, 0x7F]),       // Multiplex ratio
+        (0x00, &[0xD3, 0x60]),       // Display offset
+        (0x00, &[0xD5, 0x51]),       // Oscillator frequency
+        (0x00, &[0xD9, 0x22]),       // Pre-charge period
+        (0x00, &[0xDB, 0x35]),       // VCOM deselect level
+        (0x00, &[0xAD, 0x8A]),       // DC-DC control
+        (0x00, &[0xAF]),             // Display ON
     ];
 
-    for cmd in init_sequence {
-        i2c.write(address, &[*cmd]).ok();
-        delay.delay_ms(10u16); // バス安定化
+    for (ctrl, cmds) in init_sequence {
+        let mut payload: heapless::Vec<u8, 16> = heapless::Vec::new();
+        payload.push(*ctrl).ok();
+        payload.extend_from_slice(cmds).ok();
+        i2c.write(address, &payload).ok();
+        delay.delay_ms(5u16);
     }
     writeln!(serial_wrapper, "[oled] init done").unwrap();
 

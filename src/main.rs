@@ -26,29 +26,19 @@ fn main() -> ! {
     let serial = arduino_hal::default_serial!(dp, pins, 115200);
     let mut serial_wrapper = UnoWrapper(serial);
 
-    writeln!(serial_wrapper, "[log] Start Uno + SH1107G test").ok();
+    writeln!(serial_wrapper, "[log] Start Uno + SH1107G test").unwrap();
 
     // -------------------------
     // I2C 初期化
     // -------------------------
-    let mut i2c = i2c::I2c::new(
+    let i2c = i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         100_000,
     );
 
-    // -------------------------
-    // I2Cスキャンをバッファリング
-    // -------------------------
-    let mut scan_buf: heapless::String<256> = heapless::String::new();
-
-    scan_buf.push_str("[scan] I2C scan start\n").ok();
-    scan_i2c(&mut i2c, &mut scan_buf);
-    scan_buf.push_str("[scan] I2C scan done\n").ok();
-
-    // バッファまとめて出力
-    writeln!(serial_wrapper, "{}", scan_buf).ok();
+    // scan_i2c(&mut i2c, &mut serial_wrapper);
 
     // -------------------------
     // OLED 初期化
@@ -58,9 +48,9 @@ fn main() -> ! {
         .build();
 
     if oled.init().is_ok() {
-        writeln!(serial_wrapper, "[oled] init complete").ok();
+        writeln!(serial_wrapper, "[oled] init complete").unwrap();
     } else {
-        writeln!(serial_wrapper, "[oled] init failed!").ok();
+        writeln!(serial_wrapper, "[oled] init failed!").unwrap();
     }
 
     // -------------------------
@@ -77,12 +67,11 @@ fn main() -> ! {
     }
 
     // 矩形描画
-    let rect = Rectangle::new(Point::new((DISPLAY_WIDTH/2 - 10) as i32, (DISPLAY_HEIGHT/2 - 10) as i32),
-                              Size::new(20, 20));
+    let rect = Rectangle::new(Point::new((DISPLAY_WIDTH/2 - 10) as i32, (DISPLAY_HEIGHT/2 - 10) as i32),Size::new(20, 20));
     let _ = oled.draw_iter(rect.points().map(|p| Pixel(p, BinaryColor::On)));
 
     oled.flush().ok();
-    writeln!(serial_wrapper, "[oled] cross + rect drawn").ok();
+    writeln!(serial_wrapper, "[oled] cross + rect drawn").unwrap();
 
     loop {
         delay.delay_ms(1000u16);

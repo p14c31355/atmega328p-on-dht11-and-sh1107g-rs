@@ -22,16 +22,13 @@ embedded-io = "0.6.1"
 path = "../sh1107g-rs"
 
 [dependencies.dvcdbg]
-git = "https://github.com/p14c31355/dvcdbg.git"
+path = "../dvcdbg"
 features = ["ehal_0_2"]
 default-features = false
 
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"
 features = ["arduino-uno"]
-
-[dev-dependencies]
-dvcdbg = { path = "../dvcdbg" }
 
 # Configure the build for minimal size - AVRs have very little program memory
 [profile.dev]

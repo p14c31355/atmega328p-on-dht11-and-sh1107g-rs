@@ -6,8 +6,7 @@ use arduino_hal::i2c;
 use dvcdbg::{adapt_serial, scanner::scan_i2c};
 use embedded_io::Write;
 use panic_halt as _;
-
-use sh1107g_rs::*;
+use sh1107g_rs::{Sh1107g, I2C_MAX_WRITE};
 
 adapt_serial!(UnoWrapper);
 
@@ -17,63 +16,35 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = arduino_hal::Delay::new();
 
-    // I2C初期化
-    let mut i2c = i2c::I2c::new(
-        dp.TWI,
-        pins.a4.into_pull_up_input(),
-        pins.a5.into_pull_up_input(),
-        100_000,
-    );
-
-    // UART初期化
+    let mut i2c = i2c::I2c::new(dp.TWI, pins.a4.into_pull_up_input(), pins.a5.into_pull_up_input(), 100_000);
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
-    writeln!(serial_wrapper, "[log] Start SH1107G test").unwrap();
 
-    // I2Cスキャン
+    writeln!(serial_wrapper, "[log] Start SH1107G test").unwrap();
     scan_i2c(&mut i2c, &mut serial_wrapper);
 
-    // SH1107Gドライバ生成
-    let mut disp = Sh1107g::new(i2c, 0x3C);
-
-    // 初期化
-    disp.init().unwrap();
-    writeln!(serial_wrapper, "[oled] init done").unwrap();
+    let mut display = Sh1107g::new(i2c, 0x3C);
+    display.init().unwrap();
 
     // 十字描画
     let width = 128;
     let height = 128;
-    let page_height = 8;
+    let mut buffer = display.buffer_mut();
+    let mid_x = width / 2;
+    let mid_y = height / 2;
 
-    // 横線
-    for page in 0..(height / page_height) {
+    for y in 0..height {
         for x in 0..width {
-            let idx = x + page * width;
-            if page == height / 2 / page_height {
-                disp.buffer[idx] = 0xFF;
-            } else {
-                disp.buffer[idx] = 0x00;
+            let byte_index = x + (y / 8) * width;
+            let bit_mask = 1 << (y % 8);
+            if x == mid_x || y == mid_y {
+                buffer[byte_index] |= bit_mask;
             }
         }
     }
 
-    // 縦線
-    for page in 0..(height / page_height) {
-        for y_in_page in 0..page_height {
-            let global_y = page * page_height + y_in_page;
-            if global_y == height / 2 {
-                let x = width / 2;
-                let idx = x + page * width;
-                disp.buffer[idx] = 0xFF;
-            }
-        }
-    }
-
-    // バッファをOLEDに送信
-    disp.flush().unwrap();
+    display.flush().unwrap();
     writeln!(serial_wrapper, "[oled] cross drawn").unwrap();
 
-    loop {
-        delay.delay_ms(1000u16);
-    }
+    loop { delay.delay_ms(1000u16); }
 }

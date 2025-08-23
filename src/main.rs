@@ -3,6 +3,7 @@
 
 use arduino_hal::prelude::*;
 use arduino_hal::i2c;
+use embedded_graphics::primitives::PrimitiveStyle;
 use embedded_io::Write;
 use dvcdbg::{adapt_serial, scanner::scan_i2c};
 use embedded_graphics::{
@@ -11,7 +12,7 @@ use embedded_graphics::{
     primitives::{Line, Rectangle},
 };
 use panic_halt as _;
-use sh1107g_rs::{Sh1107g, Sh1107gBuilder, DISPLAY_WIDTH, DISPLAY_HEIGHT};
+use sh1107g_rs::Sh1107gBuilder;
 
 adapt_serial!(UnoWrapper);
 
@@ -32,44 +33,40 @@ fn main() -> ! {
     // UART 初期化
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
-    // writeln!(serial_wrapper, "[log] Start SH1107G test").unwrap();
+    writeln!(serial_wrapper, "[log] SH1107G demo start").ok();
 
-    // I2C スキャン
-    // scan_i2c(&mut i2c, &mut serial_wrapper);
+    // I2C デバイススキャン
+    scan_i2c(&mut i2c, &mut serial_wrapper);
 
     // SH1107G 初期化
-    let mut display = Sh1107gBuilder::new(i2c)
-        .clear_on_init(true)
-        .build();
+    let mut display = Sh1107gBuilder::new(i2c).build();
     display.init().unwrap();
-    writeln!(serial_wrapper, "[oled] init done").unwrap();
+    display.clear_buffer();
 
     // embedded-graphics で描画
-    // 十字線を描く
-    let mid_x = DISPLAY_WIDTH as i32 / 2;
-    let mid_y = DISPLAY_HEIGHT as i32 / 2;
+    let style_on = PrimitiveStyle::with_fill(BinaryColor::On);
 
-    // 横線
-    Line::new(Point::new(0, mid_y), Point::new(DISPLAY_WIDTH as i32 - 1, mid_y))
-        .into_styled(embedded_graphics::primitives::PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+    // 十字
+    Line::new(Point::new(0, 64), Point::new(127, 64))
+        .into_styled(style_on)
         .draw(&mut display)
         .unwrap();
 
-    // 縦線
-    Line::new(Point::new(mid_x, 0), Point::new(mid_x, DISPLAY_HEIGHT as i32 - 1))
-        .into_styled(embedded_graphics::primitives::PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+    Line::new(Point::new(64, 0), Point::new(64, 127))
+        .into_styled(style_on)
         .draw(&mut display)
         .unwrap();
 
-    // 枠も描く
-    Rectangle::new(Point::new(0, 0), Size::new(DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32))
-        .into_styled(embedded_graphics::primitives::PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+    // 四角
+    Rectangle::new(Point::new(20, 20), Size::new(40, 40))
+        .into_styled(style_on)
         .draw(&mut display)
         .unwrap();
 
-    // バッファをOLEDに送信
+    // OLED に反映
     display.flush().unwrap();
-    writeln!(serial_wrapper, "[oled] cross drawn").unwrap();
+
+    writeln!(serial_wrapper, "[oled] drawing done").ok();
 
     loop {
         delay.delay_ms(1000u16);

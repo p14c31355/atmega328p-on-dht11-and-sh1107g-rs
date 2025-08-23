@@ -30,6 +30,9 @@ default-features = false
 git = "https://github.com/rahix/avr-hal"
 features = ["arduino-uno"]
 
+[dev-dependencies]
+dvcdbg = { path = "../dvcdbg" }
+
 # Configure the build for minimal size - AVRs have very little program memory
 [profile.dev]
 panic = "abort"

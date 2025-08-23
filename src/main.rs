@@ -4,6 +4,10 @@
 use arduino_hal::prelude::*;
 use arduino_hal::i2c;
 use dvcdbg::{adapt_serial, scanner::scan_i2c};
+use embedded_graphics::prelude::*;
+use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::primitives::Rectangle;
+use embedded_graphics::draw_target::DrawTarget;
 use embedded_io::Write;
 use panic_halt as _;
 
@@ -11,7 +15,7 @@ adapt_serial!(UnoWrapper);
 
 const DISPLAY_WIDTH: usize = 128;
 const DISPLAY_HEIGHT: usize = 128;
-const PAGE_HEIGHT: usize = 8;
+const PAGE_HEIGHT: usize = 8; // SH1107 ページ単位
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -34,7 +38,8 @@ fn main() -> ! {
     // -------------------------
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
-    writeln!(serial_wrapper, "[log] Start Uno + SH1107G safe test").unwrap();
+
+    writeln!(serial_wrapper, "[log] Start Uno + SH1107G test").unwrap();
 
     // -------------------------
     // I2C デバイススキャン
@@ -42,64 +47,64 @@ fn main() -> ! {
     scan_i2c(&mut i2c, &mut serial_wrapper);
 
     // -------------------------
-    // OLED 初期化（簡易版）
+    // OLED 初期化
     // -------------------------
     let address = 0x3C;
     let init_sequence: &[u8] = &[
-        0xAE, 0xDC, 0x00, 0x81, 0x2F, 0x20, 0xA0, 0xC0,
-        0xA4, 0xA6, 0xA8, 0x7F, 0xD3, 0x60, 0xD5, 0x51,
-        0xD9, 0x22, 0xDB, 0x35, 0xAD, 0x8A, 0xAF,
+        0xAE, 0xDC, 0x00, 0x81, 0x2F, 0x20, 0xA0, 0xC0, 0xA4,
+        0xA6, 0xA8, 0x7F, 0xD3, 0x60, 0xD5, 0x51, 0xD9, 0x22,
+        0xDB, 0x35, 0xAD, 0x8A, 0xAF,
     ];
 
-    for cmd in init_sequence {
-        i2c.write(address, &[*cmd]).ok();
-        delay.delay_ms(1u16); // ちょっと待つ
-    }
-
+    // 初期化コマンドはまとめて送信（64バイト以内）
+    i2c.write(address, init_sequence).ok();
+    delay.delay_ms(10u16); // バス安定化
     writeln!(serial_wrapper, "[oled] init done").unwrap();
 
     // -------------------------
-    // クロス＋矩形描画
+    // ページ単位クロス描画
     // -------------------------
+    let mut page_buf = [0u8; DISPLAY_WIDTH]; // ページバッファ 128バイト
+
+    for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
+        // ページ切替コマンド
+        let page_cmds = [0xB0 + page as u8, 0x00, 0x10];
+        i2c.write(address, &page_cmds).ok();
+
+        // 横線
+        for x in 0..DISPLAY_WIDTH {
+            page_buf[x] = if page == (DISPLAY_HEIGHT / 2 / PAGE_HEIGHT) { 0xFF } else { 0x00 };
+        }
+
+        // データ開始
+        i2c.write(address, &[0x40]).ok();
+
+        // ページバッファ送信を 64バイトずつ
+        for chunk in page_buf.chunks(64) {
+            i2c.write(address, chunk).ok();
+        }
+    }
+
+    // 縦線もページ単位で送信
     for page in 0..(DISPLAY_HEIGHT / PAGE_HEIGHT) {
         let mut page_buf = [0u8; DISPLAY_WIDTH];
 
-        for x in 0..DISPLAY_WIDTH {
-            // 横線
-            if page == (DISPLAY_HEIGHT / 2 / PAGE_HEIGHT) {
-                page_buf[x] = 0xFF;
-            }
-
-            // 縦線
-            let bit_in_page = (DISPLAY_HEIGHT / 2) % 8;
-            if x == DISPLAY_WIDTH / 2 {
-                page_buf[x] |= 1 << bit_in_page;
-            }
-
-            // 矩形（20x20）を中央に描く
-            let rect_left = DISPLAY_WIDTH / 2 - 10;
-            let rect_top = DISPLAY_HEIGHT / 2 - 10;
-            let rect_right = rect_left + 20;
-            let rect_bottom = rect_top + 20;
-
-            if x >= rect_left && x < rect_right {
-                let y_start_in_page = page * PAGE_HEIGHT;
-                for bit in 0..8 {
-                    let y = y_start_in_page + bit;
-                    if y >= rect_top && y < rect_bottom {
-                        page_buf[x] |= 1 << bit;
-                    }
-                }
+        for y_in_page in 0..PAGE_HEIGHT {
+            let global_y = page * PAGE_HEIGHT + y_in_page;
+            if global_y == DISPLAY_HEIGHT / 2 {
+                page_buf[DISPLAY_WIDTH / 2] = 0xFF;
             }
         }
 
-        // ページ切替
-        i2c.write(address, &[0xB0 + page as u8, 0x00, 0x10]).ok();
-        i2c.write(address, &[0x40]).ok(); // データ開始
-        i2c.write(address, &page_buf).ok();
+        let page_cmds = [0xB0 + page as u8, 0x00, 0x10];
+        i2c.write(address, &page_cmds).ok();
+        i2c.write(address, &[0x40]).ok();
+        for chunk in page_buf.chunks(64) {
+            i2c.write(address, chunk).ok();
+        }
     }
 
-    writeln!(serial_wrapper, "[oled] cross + rect drawn").unwrap();
+    writeln!(serial_wrapper, "[oled] cross drawn").unwrap();
 
     loop {
         delay.delay_ms(1000u16);

@@ -33,13 +33,13 @@ features = ["arduino-uno"]
 # Configure the build for minimal size - AVRs have very little program memory
 [profile.dev]
 panic = "abort"
+codegen-units = 1
 lto = true
 opt-level = "z"
 
 [profile.release]
 panic = "abort"
 codegen-units = 1
-debug = true
 lto = true
 opt-level = "z"
 

@@ -36,7 +36,7 @@ fn main() -> ! {
     writeln!(serial_wrapper, "[log] Start SH1107G test").unwrap();
 
     // I2C デバイススキャン
-    scan_i2c(&mut i2c, &mut serial_wrapper);
+    scan_i2c(&mut i2c, &mut serial_wrapper, dvcdbg::scanner::LogLevel::Quiet);
 
     let address = 0x3C;
 
@@ -59,7 +59,7 @@ fn main() -> ! {
     0xAF, // Display ON
 ];
 
-    scan_init_sequence(&mut i2c, &mut serial_wrapper, init_sequence);
+    scan_init_sequence(&mut i2c, &mut serial_wrapper, init_sequence, dvcdbg::scanner::LogLevel::Quiet);
 
     // for cmd in init_sequence {
     //     let mut payload: heapless::Vec<u8, 8> = heapless::Vec::new();

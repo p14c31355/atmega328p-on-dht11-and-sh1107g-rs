@@ -34,12 +34,12 @@ features = ["arduino-uno"]
 [profile.dev]
 panic = "abort"
 lto = true
-opt-level = "s"
+opt-level = "z"
 
 [profile.release]
 panic = "abort"
 codegen-units = 1
 debug = true
 lto = true
-opt-level = "s"
+opt-level = "z"
 

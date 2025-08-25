@@ -48,6 +48,7 @@ where
     fn exec(&mut self, i2c: &mut I2C, addr: u8, cmd: &[u8]) -> bool {
         // プロトコル固有のロジック: コマンド送信時に 0x00 を前置する
         let mut buffer = Vec::<u8, 33>::new();
+        // `is_err()`でバッファオーバーフローをチェック
         if buffer.push(0x00).is_err() || buffer.extend_from_slice(cmd).is_err() {
             return false;
         }
@@ -75,7 +76,7 @@ fn main() -> ! {
     
     // シリアルへの書き込みは、失敗時にログを出すように変更
     if writeln!(serial_wrapper, "[log] Start SH1107G auto-init test").is_err() {
-        // エラーハンドリングは、必要に応じてより詳細に実装可能
+        // 必要に応じてエラーハンドリング
     }
     delay.delay_ms(1u16); 
 
@@ -91,12 +92,12 @@ fn main() -> ! {
     match explorer.explore(&mut i2c, &mut serial_wrapper, &mut executor) {
         Ok(()) => {
             if writeln!(serial_wrapper, "[oled] init sequence applied").is_err() {
-                 // エラーハンドリング
+                 // 必要に応じてエラーハンドリング
             }
         },
         Err(e) => {
             if writeln!(serial_wrapper, "[error] explorer failed: {:?}", e).is_err() {
-                 // エラーハンドリング
+                 // 必要に応じてエラーハンドリング
             }
         },
     }
@@ -125,7 +126,7 @@ fn main() -> ! {
     }
 
     if writeln!(serial_wrapper, "[oled] cross drawn").is_err() {
-        // エラーハンドリング
+        // 必要に応じてエラーハンドリング
     }
     delay.delay_ms(1u16);
 

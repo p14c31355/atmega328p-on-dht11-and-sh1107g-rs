@@ -43,7 +43,7 @@ const SH1107G_NODES: &[CmdNode] = &[
 struct MyExecutor;
 impl<I2C> CmdExecutor<I2C> for MyExecutor
 where
-    I2C: arduino_hal::i2c::I2c
+    I2C: dvcdbg::compat::I2cCompat,
 {
     fn exec(&mut self, i2c: &mut I2C, addr: u8, cmd: &[u8]) -> bool {
         // プロトコル固有のロジック: コマンド送信時に 0x00 を前置する

@@ -79,9 +79,11 @@ fn main() -> ! {
 
     let explorer = Explorer { sequence: SH1107G_NODES };
     let mut executor = MyExecutor;
-    explorer.explore(&mut i2c, &mut serial_wrapper, &mut executor).ok();
+    match explorer.explore(&mut i2c, &mut serial_wrapper, &mut executor) {
+        Ok(()) => writeln!(serial_wrapper, "[oled] init sequence applied").unwrap(),
+        Err(e) => writeln!(serial_wrapper, "[error] explorer failed: {:?}", e).unwrap(),
+    }
 
-    writeln!(serial_wrapper, "[oled] init sequence applied").unwrap();
 
     // --- 動作確認: 中央クロス表示 ---
     let mut page_buf: [u8; DISPLAY_WIDTH] = [0; DISPLAY_WIDTH];

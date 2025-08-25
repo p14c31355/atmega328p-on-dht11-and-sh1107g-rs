@@ -48,8 +48,9 @@ where
     fn exec(&mut self, i2c: &mut I2C, addr: u8, cmd: &[u8]) -> bool {
         // プロトコル固有のロジック: コマンド送信時に 0x00 を前置する
         let mut buffer = Vec::<u8, 33>::new();
-        buffer.push(0x00).ok();
-        buffer.extend_from_slice(cmd).ok();
+        if buffer.push(0x00).is_err() || buffer.extend_from_slice(cmd).is_err() {
+            return false;
+        }
 
         i2c.write(addr, &buffer).is_ok()
     }
@@ -72,21 +73,34 @@ fn main() -> ! {
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
     
-    writeln!(serial_wrapper, "[log] Start SH1107G auto-init test").unwrap();
-    delay.delay_ms(10u16); // ★追加
+    // シリアルへの書き込みは、失敗時にログを出すように変更
+    if writeln!(serial_wrapper, "[log] Start SH1107G auto-init test").is_err() {
+        // エラーハンドリングは、必要に応じてより詳細に実装可能
+    }
+    delay.delay_ms(1u16); 
 
     scan_i2c(&mut i2c, &mut serial_wrapper, dvcdbg::scanner::LogLevel::Quiet);
-    delay.delay_ms(10u16); // ★追加
+    delay.delay_ms(1u16); 
 
     let address = 0x3C;
 
     let explorer = Explorer { sequence: SH1107G_NODES };
     let mut executor = MyExecutor;
+    
+    // `explore`の戻り値を`match`で処理
     match explorer.explore(&mut i2c, &mut serial_wrapper, &mut executor) {
-        Ok(()) => writeln!(serial_wrapper, "[oled] init sequence applied").unwrap(),
-        Err(e) => writeln!(serial_wrapper, "[error] explorer failed: {:?}", e).unwrap(),
+        Ok(()) => {
+            if writeln!(serial_wrapper, "[oled] init sequence applied").is_err() {
+                 // エラーハンドリング
+            }
+        },
+        Err(e) => {
+            if writeln!(serial_wrapper, "[error] explorer failed: {:?}", e).is_err() {
+                 // エラーハンドリング
+            }
+        },
     }
-    delay.delay_ms(10u16); // ★追加
+    delay.delay_ms(1u16); 
 
 
     // --- 動作確認: 中央クロス表示 ---
@@ -104,13 +118,16 @@ fn main() -> ! {
         // データの書き込みもexecutorを介する
         for chunk in page_buf.chunks(I2C_MAX_WRITE - 1) {
             let mut data = Vec::<u8, I2C_MAX_WRITE>::new();
-            data.extend_from_slice(chunk).ok();
-            executor.exec(&mut i2c, address, &data);
+            if data.extend_from_slice(chunk).is_ok() {
+                executor.exec(&mut i2c, address, &data);
+            }
         }
     }
 
-    writeln!(serial_wrapper, "[oled] cross drawn").unwrap();
-    delay.delay_ms(10u16); // ★追加
+    if writeln!(serial_wrapper, "[oled] cross drawn").is_err() {
+        // エラーハンドリング
+    }
+    delay.delay_ms(1u16);
 
     loop { delay.delay_ms(1000u16); }
 }

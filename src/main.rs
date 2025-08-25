@@ -6,7 +6,7 @@ use arduino_hal::i2c;
 use dvcdbg::{
     adapt_serial,
     scanner::scan_i2c,
-    explorer::{Explorer, CmdNode, CmdExecutor, ExplorerError}
+    explorer::{Explorer, CmdNode, CmdExecutor}
 };
 use embedded_io::Write;
 use panic_halt as _;
@@ -22,22 +22,22 @@ const I2C_MAX_WRITE: usize = 32;
 
 // SH1107G_INIT_CMDS の内容を元に、新しい CmdNode の定義に合わせる
 const SH1107G_NODES: &[CmdNode] = &[
-    CmdNode { bytes: Vec::from_slice(&[0xAE]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xDC, 0x00]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0x81, 0x2F]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0x20, 0x02]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xA0]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xC0]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xA4]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xA6]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xA8, 0x7F]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xD3, 0x60]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xD5, 0x51]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xD9, 0x22]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xDB, 0x35]).unwrap(), deps: Vec::new() },
-    CmdNode { bytes: Vec::from_slice(&[0xAD, 0x8A]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: &[0xAE], deps: &[] },
+    CmdNode { bytes: &[0xDC, 0x00], deps: &[] },
+    CmdNode { bytes: &[0x81, 0x2F], deps: &[] },
+    CmdNode { bytes: &[0x20, 0x02], deps: &[] },
+    CmdNode { bytes: &[0xA0], deps: &[] },
+    CmdNode { bytes: &[0xC0], deps: &[] },
+    CmdNode { bytes: &[0xA4], deps: &[] },
+    CmdNode { bytes: &[0xA6], deps: &[] },
+    CmdNode { bytes: &[0xA8, 0x7F], deps: &[] },
+    CmdNode { bytes: &[0xD3, 0x60], deps: &[] },
+    CmdNode { bytes: &[0xD5, 0x51], deps: &[] },
+    CmdNode { bytes: &[0xD9, 0x22], deps: &[] },
+    CmdNode { bytes: &[0xDB, 0x35], deps: &[] },
+    CmdNode { bytes: &[0xAD, 0x8A], deps: &[] },
     // Display ON コマンドは Display OFF に依存
-    CmdNode { bytes: Vec::from_slice(&[0xAF]).unwrap(), deps: Vec::from_slice(&[0xAE]).unwrap() },
+    CmdNode { bytes: &[0xAF], deps: &[0xAE] },
 ];
 
 struct MyExecutor;
@@ -77,7 +77,7 @@ fn main() -> ! {
 
     let address = 0x3C;
 
-    let explorer = Explorer { sequence: Vec::from_slice(SH1107G_NODES).unwrap() };
+    let explorer = Explorer { sequence: SH1107G_NODES };
     let mut executor = MyExecutor;
     explorer.explore(&mut i2c, &mut serial_wrapper, &mut executor).ok();
 
@@ -91,15 +91,15 @@ fn main() -> ! {
             page_buf[x] = if page == DISPLAY_HEIGHT / 2 / PAGE_HEIGHT { 0xFF } else { 0x00 };
         }
         // 以下、i2c.writeへの呼び出しは全てexecutorを介するように変更
-        executor.exec(&mut i2c, address, &[0xB0 + page as u8]).ok();
-        executor.exec(&mut i2c, address, &[0x00 + COLUMN_OFFSET as u8]).ok();
-        executor.exec(&mut i2c, address, &[0x10]).ok();
+        executor.exec(&mut i2c, address, &[0xB0 + page as u8]);
+        executor.exec(&mut i2c, address, &[0x00 + COLUMN_OFFSET as u8]);
+        executor.exec(&mut i2c, address, &[0x10]);
 
         // データの書き込みもexecutorを介する
         for chunk in page_buf.chunks(I2C_MAX_WRITE - 1) {
             let mut data = Vec::<u8, I2C_MAX_WRITE>::new();
             data.extend_from_slice(chunk).ok();
-            executor.exec(&mut i2c, address, &data).ok();
+            executor.exec(&mut i2c, address, &data);
         }
     }
 

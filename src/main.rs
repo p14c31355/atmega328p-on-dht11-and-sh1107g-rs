@@ -5,7 +5,6 @@ use arduino_hal::prelude::*;
 use arduino_hal::i2c;
 use dvcdbg::{
     adapt_serial,
-    scanner::scan_i2c,
     explorer::{Explorer, CmdNode, CmdExecutor}
 };
 use embedded_io::Write;
@@ -31,22 +30,21 @@ where
 
 // SH1107G_INIT_CMDSを、本来の多バイトコマンドとして定義
 const SH1107G_NODES: &[CmdNode] = &[
-    CmdNode { bytes: &[0xAE], deps: &[] },          // Display OFF
-    CmdNode { bytes: &[0xDC, 0x00], deps: &[] },    // Display start line
-    CmdNode { bytes: &[0x81, 0x2F], deps: &[] },    // Contrast
-    CmdNode { bytes: &[0x20, 0x02], deps: &[] },    // Memory addressing mode
-    CmdNode { bytes: &[0xA0], deps: &[] },          // Segment remap
-    CmdNode { bytes: &[0xC0], deps: &[] },          // Common output scan direction
-    CmdNode { bytes: &[0xA4], deps: &[] },          // Entire display ON from RAM
-    CmdNode { bytes: &[0xA6], deps: &[] },          // Normal display
-    CmdNode { bytes: &[0xA8, 0x7F], deps: &[] },    // Multiplex ratio
-    CmdNode { bytes: &[0xD3, 0x60], deps: &[] },    // Display offset
-    CmdNode { bytes: &[0xD5, 0x51], deps: &[] },    // Oscillator frequency
-    CmdNode { bytes: &[0xD9, 0x22], deps: &[] },    // Pre-charge period
-    CmdNode { bytes: &[0xDB, 0x35], deps: &[] },    // VCOM deselect level
-    CmdNode { bytes: &[0xAD, 0x8A], deps: &[] },    // DC-DC
-    // Display ON コマンドは Display OFF に依存
-    CmdNode { bytes: &[0xAF], deps: &[0xAE] },      // Display ON
+    CmdNode { bytes: &[0xAE], deps: &[] },          // 依存関係なし (最初)
+    CmdNode { bytes: &[0xDC, 0x00], deps: &[0xAE] },  // 直前の0xAEに依存
+    CmdNode { bytes: &[0x81, 0x2F], deps: &[0xDC] },  // 直前の0xDCに依存
+    CmdNode { bytes: &[0x20, 0x02], deps: &[0x81] },  // 直前の0x81に依存
+    CmdNode { bytes: &[0xA0], deps: &[0x20] },        // 直前の0x20に依存
+    CmdNode { bytes: &[0xC0], deps: &[0xA0] },        // 直前の0xA0に依存
+    CmdNode { bytes: &[0xA4], deps: &[0xC0] },        // 直前の0xC0に依存
+    CmdNode { bytes: &[0xA6], deps: &[0xA4] },        // 直前の0xA4に依存
+    CmdNode { bytes: &[0xA8, 0x7F], deps: &[0xA6] },  // 直前の0xA6に依存
+    CmdNode { bytes: &[0xD3, 0x60], deps: &[0xA8] },  // 直前の0xA8に依存
+    CmdNode { bytes: &[0xD5, 0x51], deps: &[0xD3] },  // 直前の0xD3に依存
+    CmdNode { bytes: &[0xD9, 0x22], deps: &[0xD5] },  // 直前の0xD5に依存
+    CmdNode { bytes: &[0xDB, 0x35], deps: &[0xD9] },  // 直前の0xD9に依存
+    CmdNode { bytes: &[0xAD, 0x8A], deps: &[0xDB] },  // 直前の0xDBに依存
+    CmdNode { bytes: &[0xAF], deps: &[0xAE] },        // 0xAFは0xAEにのみ依存
 ];
 
 #[arduino_hal::entry]
@@ -66,7 +64,7 @@ fn main() -> ! {
     let mut serial_wrapper = UnoWrapper(serial);
     
     if writeln!(serial_wrapper, "[log] Start SH1107G auto-init test").is_err() {
-        // 必要に応じてエラーハンドリング
+        writeln!(serial_wrapper, "[log] Start SH1107G auto-init test failed").unwrap();
     }
     delay.delay_ms(1u16); 
 

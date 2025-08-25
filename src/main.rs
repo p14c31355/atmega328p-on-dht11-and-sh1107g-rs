@@ -6,10 +6,11 @@ use arduino_hal::i2c;
 use dvcdbg::{
     adapt_serial,
     scanner::scan_i2c,
-    explorer::{Explorer, CmdNode}
+    explorer::{Explorer, CmdNode, CmdExecutor, ExplorerError}
 };
 use embedded_io::Write;
 use panic_halt as _;
+use heapless::Vec;
 
 adapt_serial!(UnoWrapper);
 
@@ -19,23 +20,41 @@ const PAGE_HEIGHT: usize = 8;
 const COLUMN_OFFSET: usize = 2;
 const I2C_MAX_WRITE: usize = 32;
 
-pub const SH1107G_INIT_CMDS: &[u8] = &[
-    0xAE,       // Display OFF
-    0xDC, 0x00, // Display start line = 0
-    0x81, 0x2F, // Contrast
-    0x20, 0x02, // Memory addressing mode: page
-    0xA0,       // Segment remap normal
-    0xC0,       // Common output scan direction normal
-    0xA4,       // Entire display ON from RAM
-    0xA6,       // Normal display
-    0xA8, 0x7F, // Multiplex ratio 128
-    0xD3, 0x60, // Display offset
-    0xD5, 0x51, // Oscillator frequency
-    0xD9, 0x22, // Pre-charge period
-    0xDB, 0x35, // VCOM deselect level
-    0xAD, 0x8A, // DC-DC control
-    0xAF,       // Display ON
+// SH1107G_INIT_CMDS の内容を元に、新しい CmdNode の定義に合わせる
+const SH1107G_NODES: &[CmdNode] = &[
+    CmdNode { bytes: Vec::from_slice(&[0xAE]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xDC, 0x00]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0x81, 0x2F]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0x20, 0x02]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xA0]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xC0]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xA4]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xA6]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xA8, 0x7F]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xD3, 0x60]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xD5, 0x51]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xD9, 0x22]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xDB, 0x35]).unwrap(), deps: Vec::new() },
+    CmdNode { bytes: Vec::from_slice(&[0xAD, 0x8A]).unwrap(), deps: Vec::new() },
+    // Display ON コマンドは Display OFF に依存
+    CmdNode { bytes: Vec::from_slice(&[0xAF]).unwrap(), deps: Vec::from_slice(&[0xAE]).unwrap() },
 ];
+
+struct MyExecutor;
+impl<I2C> CmdExecutor<I2C> for MyExecutor
+where
+    I2C: arduino_hal::i2c::I2c
+{
+    fn exec(&mut self, i2c: &mut I2C, addr: u8, cmd: &[u8]) -> bool {
+        // プロトコル固有のロジック: コマンド送信時に 0x00 を前置する
+        let mut buffer = Vec::<u8, 33>::new();
+        buffer.push(0x00).ok();
+        buffer.extend_from_slice(cmd).ok();
+
+        i2c.write(addr, &buffer).is_ok()
+    }
+}
+
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -58,39 +77,9 @@ fn main() -> ! {
 
     let address = 0x3C;
 
-    // --- SH1107G_INIT_CMDS を CmdNode 化する ---
-    // 基本ルール:
-    //   - コマンド自体は deps: &[]
-    //   - 直後にパラメータがある場合、そのパラメータの deps に親コマンドを指定
-    let nodes: &[CmdNode] = &[
-        CmdNode { cmd: 0xAE, deps: &[] },              // Display OFF
-        CmdNode { cmd: 0xDC, deps: &[] },          // Display start line
-        CmdNode { cmd: 0x00, deps: &[] },          // param
-        CmdNode { cmd: 0x81, deps: &[] },          // Contrast
-        CmdNode { cmd: 0x2F, deps: &[] },          // param
-        CmdNode { cmd: 0x20, deps: &[] },          // Mem mode
-        CmdNode { cmd: 0x02, deps: &[] },          // param
-        CmdNode { cmd: 0xA0, deps: &[] },          // Segment remap
-        CmdNode { cmd: 0xC0, deps: &[] },          // COM scan dir
-        CmdNode { cmd: 0xA4, deps: &[] },          // Entire display
-        CmdNode { cmd: 0xA6, deps: &[] },          // Normal display
-        CmdNode { cmd: 0xA8, deps: &[] },          // Multiplex
-        CmdNode { cmd: 0x7F, deps: &[] },          // param
-        CmdNode { cmd: 0xD3, deps: &[] },          // Offset
-        CmdNode { cmd: 0x60, deps: &[] },          // param
-        CmdNode { cmd: 0xD5, deps: &[] },          // Oscillator
-        CmdNode { cmd: 0x51, deps: &[] },          // param
-        CmdNode { cmd: 0xD9, deps: &[] },          // Pre-charge
-        CmdNode { cmd: 0x22, deps: &[] },          // param
-        CmdNode { cmd: 0xDB, deps: &[] },          // VCOM
-        CmdNode { cmd: 0x35, deps: &[] },          // param
-        CmdNode { cmd: 0xAD, deps: &[] },          // DC-DC
-        CmdNode { cmd: 0x8A, deps: &[] },          // param
-        CmdNode { cmd: 0xAF, deps: &[0xAE] },          // Display ON
-    ];
-
-    let explorer = Explorer { sequence: nodes };
-    explorer.explore(&mut i2c, &mut serial_wrapper).ok();
+    let explorer = Explorer { sequence: Vec::from_slice(SH1107G_NODES).unwrap() };
+    let mut executor = MyExecutor;
+    explorer.explore(&mut i2c, &mut serial_wrapper, &mut executor).ok();
 
     writeln!(serial_wrapper, "[oled] init sequence applied").unwrap();
 
@@ -101,15 +90,16 @@ fn main() -> ! {
         for x in 0..DISPLAY_WIDTH {
             page_buf[x] = if page == DISPLAY_HEIGHT / 2 / PAGE_HEIGHT { 0xFF } else { 0x00 };
         }
-        i2c.write(address, &[0x00, 0xB0 + page as u8]).ok();
-        i2c.write(address, &[0x00, 0x00 + COLUMN_OFFSET as u8]).ok();
-        i2c.write(address, &[0x00, 0x10]).ok();
+        // 以下、i2c.writeへの呼び出しは全てexecutorを介するように変更
+        executor.exec(&mut i2c, address, &[0xB0 + page as u8]).ok();
+        executor.exec(&mut i2c, address, &[0x00 + COLUMN_OFFSET as u8]).ok();
+        executor.exec(&mut i2c, address, &[0x10]).ok();
 
+        // データの書き込みもexecutorを介する
         for chunk in page_buf.chunks(I2C_MAX_WRITE - 1) {
-            let mut data: heapless::Vec<u8, I2C_MAX_WRITE> = heapless::Vec::new();
-            data.push(0x40).ok();
+            let mut data = Vec::<u8, I2C_MAX_WRITE>::new();
             data.extend_from_slice(chunk).ok();
-            i2c.write(address, &data).ok();
+            executor.exec(&mut i2c, address, &data).ok();
         }
     }
 

@@ -71,9 +71,12 @@ fn main() -> ! {
 
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
+    
     writeln!(serial_wrapper, "[log] Start SH1107G auto-init test").unwrap();
+    delay.delay_ms(10u16); // ★追加
 
     scan_i2c(&mut i2c, &mut serial_wrapper, dvcdbg::scanner::LogLevel::Quiet);
+    delay.delay_ms(10u16); // ★追加
 
     let address = 0x3C;
 
@@ -83,6 +86,7 @@ fn main() -> ! {
         Ok(()) => writeln!(serial_wrapper, "[oled] init sequence applied").unwrap(),
         Err(e) => writeln!(serial_wrapper, "[error] explorer failed: {:?}", e).unwrap(),
     }
+    delay.delay_ms(10u16); // ★追加
 
 
     // --- 動作確認: 中央クロス表示 ---
@@ -106,6 +110,7 @@ fn main() -> ! {
     }
 
     writeln!(serial_wrapper, "[oled] cross drawn").unwrap();
+    delay.delay_ms(10u16); // ★追加
 
     loop { delay.delay_ms(1000u16); }
 }

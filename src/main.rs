@@ -17,7 +17,6 @@ fn main() -> ! {
 
     // serial initialization
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
-    arduino_hal::delay_ms(1000);
     writeln!(serial, "[SH1107G Explorer Test]").ok();
 
     // I2C initialization

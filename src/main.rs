@@ -29,24 +29,26 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2Cの初期化が完了しました。").ok();
 
-    // ---- SH1107G の候補初期化シーケンス ----
-    let init_seq: [u8; 24] = [
-        0xAE, // Display OFF
-        0xDC, 0x00, // Display start line = 0
-        0x81, 0x2F, // Contrast
-        0x20, 0x02, // Memory addressing mode: page
-        0xA0, // Segment remap normal
-        0xC0, // Common output scan direction normal
-        0xA4, // Entire display ON from RAM
-        0xA6, // Normal display
-        0xA8, 0x7F, // Multiplex ratio 128
-        0xD3, 0x60, // Display offset
-        0xD5, 0x51, // Oscillator frequency
-        0xD9, 0x22, // Pre-charge period
-        0xDB, 0x35, // VCOM deselect level
-        0xAD, 0x8A, // DC-DC control
-        0xAF,       // Display ON
-    ];
+// ---- SH1107G の候補初期化シーケンス ----
+// 各コマンドの前に制御バイト 0x00 を追加
+// これを単一のバイト列として定義
+let init_seq: [u8; 39] = [
+    0x00, 0xAE, // Display OFF
+    0x00, 0xDC, 0x00, // Display start line = 0
+    0x00, 0x81, 0x2F, // Contrast
+    0x00, 0x20, 0x02, // Memory addressing mode: page
+    0x00, 0xA0, // Segment remap normal
+    0x00, 0xC0, // Common output scan direction normal
+    0x00, 0xA4, // Entire display ON from RAM
+    0x00, 0xA6, // Normal display
+    0x00, 0xA8, 0x7F, // Multiplex ratio 128
+    0x00, 0xD3, 0x60, // Display offset
+    0x00, 0xD5, 0x51, // Oscillator frequency
+    0x00, 0xD9, 0x22, // Pre-charge period
+    0x00, 0xDB, 0x35, // VCOM deselect level
+    0x00, 0xAD, 0x8A, // DC-DC control
+    0x00, 0xAF,       // Display ON
+];
 
     // ---- Explorer 用コマンドノード定義 ----
     // 各コマンドの前に制御バイト 0x00 を追加
@@ -67,12 +69,12 @@ fn main() -> ! {
         CmdNode { bytes: &[0x00, 0xD9, 0x22], deps: &[] },
         CmdNode { bytes: &[0x00, 0xDB, 0x35], deps: &[] },
         CmdNode { bytes: &[0x00, 0xAD, 0x8A], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xAF], deps: &[0] }, // ONコマンド(0xAF)はOFFコマンド(0xAE)に依存
+        CmdNode { bytes: &[0x00, 0xAF], deps: &[] }, // ONコマンド(0xAF)はOFFコマンド(0xAE)に依存
     ];
     let explorer = Explorer::<NUM_CMDS> { sequence: &cmds };
 
     // ---- 探索実行 ----
-    let _ = run_explorer::<_, _, NUM_CMDS, 24>(
+    let _ = run_explorer::<_, _, NUM_CMDS, 39>(
         &explorer,
         &mut i2c,
         &mut serial,

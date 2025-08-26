@@ -36,7 +36,7 @@ dependencies = [
  "embedded-io",
  "heapless 0.9.1",
  "nb 1.1.0",
- "panic-halt",
+ "panic-abort",
  "sh1107g-rs",
 ]
 
@@ -255,10 +255,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "panic-halt"
-version = "1.0.0"
+name = "panic-abort"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a513e167849a384b7f9b746e517604398518590a9142f4846a32e3c2a4de7b11"
+checksum = "4e20e6499bbbc412f280b04a42346b356c6fa0753d5fd22b7bd752ff34c778ee"
 
 [[package]]
 name = "paste"

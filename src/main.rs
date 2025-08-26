@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-use embedded_io::Write;
 
 use arduino_hal::prelude::*;
 use panic_halt as _;
@@ -13,7 +12,9 @@ use embedded_graphics_core::{
 };
 use sh1107g_rs::{Sh1107gBuilder, error::Sh1107gError};
 
+// UnoWrapper 生成と fmt::Write 対応
 adapt_serial!(UnoWrapper);
+dvcdbg::prelude::impl_fmt_write!(UnoWrapper);
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -29,7 +30,7 @@ fn main() -> ! {
         100_000,
     );
 
-    // シリアルログ初期化
+    // シリアル初期化
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut logger = UnoWrapper(serial);
 
@@ -44,11 +45,11 @@ fn main() -> ! {
         log_error(&mut logger, "init failed", &e);
     }
 
-    // 小さなテスト描画（左上 8x8 ドット）
+    // 左上 8x8 ドット描画テスト
     for y in 0..8 {
         for x in 0..8 {
             let _ = display.draw_iter(core::iter::once(
-                Pixel(Point::new(x, y), BinaryColor::On)
+                Pixel(Point::new(x, y), BinaryColor::On),
             ));
         }
     }
@@ -63,6 +64,10 @@ fn main() -> ! {
 }
 
 // SH1107G エラーを UnoWrapper に表示
-fn log_error<E: core::fmt::Debug>(logger: &mut UnoWrapper<impl core::fmt::Write>, msg: &str, err: &Sh1107gError<E>) {
+fn log_error<E, W>(logger: &mut UnoWrapper<W>, msg: &str, err: &Sh1107gError<E>)
+where
+    E: core::fmt::Debug,
+    W: embedded_io::Write + dvcdbg::compat::SerialCompat + core::fmt::Write,
+{
     let _ = writeln!(logger, "[error] {}: {:?}", msg, err);
 }

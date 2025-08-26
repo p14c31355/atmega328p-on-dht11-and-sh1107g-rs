@@ -48,7 +48,7 @@ fn main() -> ! {
 
     // 順序通りに I2C コマンドを送信
     for node in SH1107G_NODES {
-        if let Err(e) = i2c.write(0x3C, node.bytes) {
+        if let Err(e) = dvcdbg::compat::I2cCompat::write(&mut i2c, 0x3C, node.bytes) {
             let _ = writeln!(logger, "[error] write failed: {:?}", e);
         }
     }

@@ -1,31 +1,19 @@
 #![no_std]
 #![no_main]
 
-use arduino_hal::i2c;
 use arduino_hal::prelude::*;
-use dvcdbg::prelude::*;
-use embedded_io::Write;
+use arduino_hal::i2c;
 use panic_halt as _;
 
-adapt_serial!(UnoWrapper);
+use embedded_graphics::{
+    pixelcolor::BinaryColor,
+    prelude::*,
+    primitives::{Rectangle, PrimitiveStyle},
+    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    text::Text,
+};
 
-const SH1107G_NODES: &[CmdNode<'_>] = &[
-    CmdNode { bytes: &[0xAE], deps: &[] },            // Display OFF
-    CmdNode { bytes: &[0xDC, 0x00], deps: &[] },      // Display start line
-    CmdNode { bytes: &[0x81, 0x2F], deps: &[] },      // Contrast
-    CmdNode { bytes: &[0x20, 0x02], deps: &[] },      // Memory addressing mode
-    CmdNode { bytes: &[0xA0], deps: &[] },            // Segment remap
-    CmdNode { bytes: &[0xC0], deps: &[] },            // COM output dir
-    CmdNode { bytes: &[0xA4], deps: &[] },            // Entire display ON
-    CmdNode { bytes: &[0xA6], deps: &[] },            // Normal display
-    CmdNode { bytes: &[0xA8, 0x7F], deps: &[] },      // Multiplex ratio
-    CmdNode { bytes: &[0xD3, 0x60], deps: &[] },      // Display offset
-    CmdNode { bytes: &[0xD5, 0x51], deps: &[] },      // Oscillator
-    CmdNode { bytes: &[0xD9, 0x22], deps: &[] },      // Pre-charge
-    CmdNode { bytes: &[0xDB, 0x35], deps: &[] },      // VCOM level
-    CmdNode { bytes: &[0xAD, 0x8A], deps: &[] },      // DC-DC control
-    CmdNode { bytes: &[0xAF], deps: &[] },            // Display ON
-];
+use sh1107g_rs::Sh1107gBuilder;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -33,53 +21,45 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = arduino_hal::Delay::new();
 
-    let mut i2c = i2c::I2c::new(
+    // I2C 初期化
+    let i2c = i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         100_000,
     );
 
-    let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut logger = UnoWrapper(serial);
+    // ドライバ構築
+    let mut display = Sh1107gBuilder::new(i2c)
+        .clear_on_init(true)
+        .build();
 
-    let addr = 0x3C; // SH1107G I2C address
+    // OLED 初期化
+    display.init().unwrap();
 
-    let _ = writeln!(logger, "[log] Start SH1107G safe init");
+    // e-grahpics 描画
+    // 1. 黒背景に四角を描く
+    Rectangle::new(Point::new(0, 0), Size::new(128, 128))
+        .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
+        .draw(&mut display)
+        .unwrap();
 
-    // 1️⃣ 初期化コマンドを順に送信
-    for node in SH1107G_NODES {
-        for &b in node.bytes {
-            let buf = [0x00, b]; // 0x00 = コマンドフラグ
-            match dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &buf) {
-                Ok(_) => { let _ = writeln!(logger, "[ok] wrote byte: 0x{:02X}", b); }
-                Err(e) => { let _ = writeln!(logger, "[error] write failed: {:?}", e); }
-            }
-            delay.delay_ms(5u16);
-        }
+    // 2. 中心に白い四角
+    Rectangle::new(Point::new(32, 32), Size::new(64, 64))
+        .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
+        .draw(&mut display)
+        .unwrap();
+
+    // 3. テキスト描画
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+    Text::new("Hello", Point::new(40, 60), text_style)
+        .draw(&mut display)
+        .unwrap();
+
+    // バッファをフラッシュして OLED に表示
+    display.flush().unwrap();
+
+    loop {
+        delay.delay_ms(1000u16);
     }
-
-    // 2️⃣ 全ページ・全列をクリア（0x00 = 黒）
-    // ページごとに列をクリア
-for page in 0..8 {
-    let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0xB0 + page]); // ページ設定
-    let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0x02, 0x10]);   // 列アドレス設定
-
-    // 8バイトずつ送信
-    let mut chunk_buf = [0x40u8; 9]; // 0x40 + 8バイト
-    for b in chunk_buf[1..].iter_mut() {
-        *b = 0x00; // 黒
-    }
-
-    for _ in 0..16 { // 16 * 8 = 128列
-        let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &chunk_buf);
-    }
-
-    let _ = writeln!(logger, "[ok] cleared page {}", page);
-}
-
-
-    let _ = writeln!(logger, "[oled] init sequence applied and screen fully cleared");
-
-    loop { delay.delay_ms(1000u16); }
 }

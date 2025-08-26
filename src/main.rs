@@ -3,9 +3,10 @@
 
 use arduino_hal::prelude::*;
 use embedded_io::Write;
-use panic_abort as _; // panic-abortに変更した場合はこちらをコメントアウト
+use panic_abort as _; // panic-abort に変更済みの場合はこちらを使用
 
 use dvcdbg::prelude::*;
+use dvcdbg::compat::I2cCompat;
 
 adapt_serial!(UnoWrapper);
 
@@ -30,37 +31,54 @@ fn main() -> ! {
     writeln!(serial, "[Info] I2Cの初期化が完了しました。").ok();
 
     // ---- SH1107G の候補初期化シーケンス ----
-    // 制御バイト(0x00)とコマンドを単一のバイト配列として定義
     let init_seq: [u8; 39] = [
-        0x00, 0xAE, // Display OFF (2 bytes)
-        0x00, 0xDC, 0x00, // Display start line = 0 (3 bytes)
-        0x00, 0x81, 0x2F, // Contrast (3 bytes)
-        0x00, 0x20, 0x02, // Memory addressing mode: page (3 bytes)
-        0x00, 0xA0, // Segment remap normal (2 bytes)
-        0x00, 0xC0, // Common output scan direction normal (2 bytes)
-        0x00, 0xA4, // Entire display ON from RAM (2 bytes)
-        0x00, 0xA6, // Normal display (2 bytes)
-        0x00, 0xA8, 0x7F, // Multiplex ratio 128 (3 bytes)
-        0x00, 0xD3, 0x60, // Display offset (3 bytes)
-        0x00, 0xD5, 0x51, // Oscillator frequency (3 bytes)
-        0x00, 0xD9, 0x22, // Pre-charge period (3 bytes)
-        0x00, 0xDB, 0x35, // VCOM deselect level (3 bytes)
-        0x00, 0xAD, 0x8A, // DC-DC control (3 bytes)
-        0x00, 0xAF,       // Display ON (2 bytes)
+        0x00, 0xAE, 
+        0x00, 0xDC, 0x00,
+        0x00, 0x81, 0x2F,
+        0x00, 0x20, 0x02,
+        0x00, 0xA0,
+        0x00, 0xC0,
+        0x00, 0xA4,
+        0x00, 0xA6,
+        0x00, 0xA8, 0x7F,
+        0x00, 0xD3, 0x60,
+        0x00, 0xD5, 0x51,
+        0x00, 0xD9, 0x22,
+        0x00, 0xDB, 0x35,
+        0x00, 0xAD, 0x8A,
+        0x00, 0xAF,
     ];
 
-    // ---- 探索実行の代わりに、初期化シーケンスを直接送信 ----
-    writeln!(serial, "[Info] 初期化シーケンスを直接送信します...").ok();
-    
-    // I2C アドレス 0x3C に init_seq 全体を一度に書き込む
-    // SH1107Gがこれを単一のトランザクションとして処理する
-    let result = dvcdbg::compat::I2cCompat::write(&mut i2c, 0x3C, &init_seq);
+    // ---- Explorer 用コマンドノード定義 ----
+    const NUM_CMDS: usize = 15;
+    let cmds: [CmdNode; NUM_CMDS] = [
+        CmdNode { bytes: &[0x00, 0xAE], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xDC, 0x00], deps: &[] },
+        CmdNode { bytes: &[0x00, 0x81, 0x2F], deps: &[] },
+        CmdNode { bytes: &[0x00, 0x20, 0x02], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xA0], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xC0], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xA4], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xA6], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xA8, 0x7F], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xD3, 0x60], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xD5, 0x51], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xD9, 0x22], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xDB, 0x35], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xAD, 0x8A], deps: &[] },
+        CmdNode { bytes: &[0x00, 0xAF], deps: &[0] },
+    ];
+    let explorer = Explorer::<NUM_CMDS> { sequence: &cmds };
 
-    // 結果をログに出力
-    match result {
-        Ok(_) => writeln!(serial, "[Success] 初期化シーケンスの送信に成功しました。").ok(),
-        Err(e) => writeln!(serial, "[Error] 初期化シーケンスの送信に失敗しました: {:?}", e).ok(),
-    };
+    // ---- 探索実行 ----
+    let _ = run_explorer::<_, _, NUM_CMDS, 39>(
+        &explorer,
+        &mut i2c,
+        &mut serial,
+        &init_seq,
+        0x3C,
+        LogLevel::Verbose
+    );
 
     loop {}
 }

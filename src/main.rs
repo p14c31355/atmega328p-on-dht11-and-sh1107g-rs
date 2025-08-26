@@ -23,7 +23,7 @@ fn main() -> ! {
         dp.TWI,
         pins.a4.into_pull_up_input(), // SDA
         pins.a5.into_pull_up_input(), // SCL
-        400_000,
+        100000,
     );
 
     let _found = scan_i2c(&mut i2c, &mut serial, LogLevel::Verbose);

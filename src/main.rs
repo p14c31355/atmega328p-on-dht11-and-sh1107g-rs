@@ -26,16 +26,26 @@ fn main() -> ! {
         100000,
     );
 
-    let _found = scan_i2c(&mut i2c, &mut serial, LogLevel::Verbose);
+    //let _found = scan_i2c(&mut i2c, &mut serial, LogLevel::Verbose);
     // ---- SH1107G の候補初期化シーケンス ----
     // データシート準拠の代表的なコマンド群
-    let init_seq: [u8; 5] = [
-        0xAE, // Display OFF
-        0xA1, // Segment remap
-        0xA6, // Normal display
-        0xA8, // Multiplex ratio
-        0xAF, // Display ON
-    ];
+    let init_seq: [u8; 24] = [
+    0xAE, // Display OFF
+    0xDC, 0x00, // Display start line = 0
+    0x81, 0x2F, // Contrast
+    0x20,  0x02, // Memory addressing mode: page
+    0xA0, // Segment remap normal
+    0xC0, // Common output scan direction normal
+    0xA4, // Entire display ON from RAM
+    0xA6, // Normal display
+    0xA8, 0x7F, // Multiplex ratio 128
+    0xD3, 0x60, // Display offset
+    0xD5, 0x51, // Oscillator frequency
+    0xD9, 0x22, // Pre-charge period
+    0xDB, 0x35, // VCOM deselect level
+    0xAD, 0x8A, // DC-DC control
+    0xAF,       // Display ON
+];
 
     // ---- Explorer 用コマンドノード定義 ----
     // CmdNode { bytes: コマンド配列, deps: 依存関係インデックス }
@@ -50,7 +60,32 @@ fn main() -> ! {
 
     // ---- 探索実行 ----
     // prefix = 0x00 → コマンドモードで送信
-    let _ = run_explorer::<_, _, 8, 32>(&explorer, &mut i2c, &mut serial, &init_seq, 0x3C, LogLevel::Verbose);
+    let _ = run_explorer::<_, _, 8, 32>(&explorer, &mut i2c, &mut serial, &init_seq, 0x00, LogLevel::Quiet);
 
     loop {}
 }
+
+/*0xAE
+ 0xDC
+ 0x00
+ 0x81
+ 0x2F
+ 0x20
+ 0x02
+ 0xA0
+ 0xC0
+ 0xA4
+ 0xA6
+ 0xA8
+ 0x7F
+ 0xD3
+ 0x60
+ 0xD5
+ 0x51
+ 0xD9
+ 0x22
+ 0xDB
+ 0x35
+ 0xAD
+ 0x8A
+ 0xAF */

@@ -2,18 +2,20 @@
 #![no_main]
 
 use arduino_hal::prelude::*;
-use arduino_hal::i2c;
 use panic_halt as _;
+use dvcdbg::prelude::*;
+use core::fmt::Write;
+use embedded_graphics_core::draw_target::DrawTarget;
+use embedded_graphics_core::geometry::{Point, Size};
+use embedded_graphics_core::pixelcolor::BinaryColor;
+use dvcdbg::compat::serial_compat::{SerialEio, UartLike}; // SerialEioとUartLikeをインポート
 
-use embedded_graphics::{
-    pixelcolor::BinaryColor,
-    prelude::*,
-    primitives::{Rectangle, PrimitiveStyle},
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
-    text::Text,
-};
+adapt_serial!(UnoWrapper);
 
-use sh1107g_rs::Sh1107gBuilder;
+use sh1107g_rs::{Sh1107gBuilder, error::*};
+
+// arduino_hal::hal::usart::Usart を embedded_io::Write に適合させるアダプター
+
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -21,45 +23,50 @@ fn main() -> ! {
     let pins = arduino_hal::pins!(dp);
     let mut delay = arduino_hal::Delay::new();
 
-    // I2C 初期化
-    let i2c = i2c::I2c::new(
+    let i2c = arduino_hal::i2c::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
         pins.a5.into_pull_up_input(),
         100_000,
     );
 
-    // ドライバ構築
+    let serial_hal = arduino_hal::default_serial!(dp, pins, 57600);
+    let serial_writer = UsartWriter(serial_hal);
+    let serial_eio = SerialEio(serial_writer);
+    let mut logger = UnoWrapper(serial_eio);
+
     let mut display = Sh1107gBuilder::new(i2c)
         .clear_on_init(true)
         .build();
 
-    // OLED 初期化
-    display.init().unwrap();
+    let _ = writeln!(logger, "[log] Init SH1107G...");
 
-    // e-grahpics 描画
-    // 1. 黒背景に四角を描く
-    Rectangle::new(Point::new(0, 0), Size::new(128, 128))
-        .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
-        .draw(&mut display)
-        .unwrap();
+    if let Err(e) = display.init() {
+        log_error(&mut logger, "init failed", &e);
+    }
 
-    // 2. 中心に白い四角
-    Rectangle::new(Point::new(32, 32), Size::new(64, 64))
-        .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
-        .draw(&mut display)
-        .unwrap();
+    // テスト描画
+    for y in 0..8 {
+        for x in 0..8 {
+            let _ = display.draw_iter(core::iter::once(
+                embedded_graphics_core::Pixel(
+                    embedded_graphics_core::geometry::Point::new(x, y),
+                    embedded_graphics_core::pixelcolor::BinaryColor::On
+                )
+            ));
+        }
+    }
 
-    // 3. テキスト描画
-    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
-    Text::new("Hello", Point::new(40, 60), text_style)
-        .draw(&mut display)
-        .unwrap();
-
-    // バッファをフラッシュして OLED に表示
-    display.flush().unwrap();
+    if let Err(e) = display.flush() {
+        log_error(&mut logger, "flush failed", &e);
+    }
 
     loop {
         delay.delay_ms(1000u16);
     }
+}
+
+// dvcdbg UnoWrapper で Sh1107gError を表示
+fn log_error(logger: &mut UnoWrapper<SerialEio<UsartWriter<impl embedded_hal::serial::Write<u8>>>>, msg: &str, err: &Sh1107gError<impl core::fmt::Debug>) {
+    let _ = writeln!(logger, "[error] {}: {:?}", msg, err);
 }

@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 panic-halt = "1.0.0"
 embedded-graphics = "0.8.1"
+embedded-graphics-core = "0.4.0" # 明示的に追加
 heapless = "0.9.1"
 nb = "1.1.0"
 embedded-hal = "0.2.7"
@@ -42,4 +43,3 @@ panic = "abort"
 codegen-units = 1
 lto = true
 opt-level = "z"
-

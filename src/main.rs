@@ -47,10 +47,10 @@ fn main() -> ! {
 
     let _ = writeln!(logger, "[log] Start SH1107G safe init");
 
+    // 1️⃣ コマンド送信
     for node in SH1107G_NODES {
         for &b in node.bytes {
-            // コマンドフラグ 0x00 + 1バイト送信
-            let buf = [0x00, b];
+            let buf = [0x00, b]; // コマンドバイト
             match dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &buf) {
                 Ok(_) => {
                     let _ = writeln!(logger, "[ok] wrote byte: 0x{:02X}", b);
@@ -63,7 +63,28 @@ fn main() -> ! {
         }
     }
 
-    let _ = writeln!(logger, "[oled] init sequence applied");
+    // 2️⃣ 全画面クリア
+    let mut data_buf = [0x40; 129]; // 0x40 + 128列空白
+    for page in 0..8 {
+        // ページアドレス設定（0xB0 + page）
+        let page_cmd = [0x00, 0xB0 + page];
+        let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &page_cmd);
+        // コラムアドレス初期化（0x00..0x7F）
+        let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0x00]);
+        let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0x10]);
+        // データ書き込み
+        match dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &data_buf) {
+            Ok(_) => {
+                let _ = writeln!(logger, "[ok] cleared page {}", page);
+            }
+            Err(e) => {
+                let _ = writeln!(logger, "[error] failed clearing page {}: {:?}", page, e);
+            }
+        }
+        delay.delay_ms(5u16);
+    }
+
+    let _ = writeln!(logger, "[oled] init sequence applied and screen cleared");
 
     loop {
         delay.delay_ms(1000u16);

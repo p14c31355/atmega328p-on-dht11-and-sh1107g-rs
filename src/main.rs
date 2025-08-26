@@ -30,7 +30,8 @@ fn main() -> ! {
 
     // ---- Explorer for SH1107G initialization sequence ----
     // This is the sequence for the Explorer's permutation algorithm.
-    const EXPLORER_CMDS: [CmdNode; 11] = [
+    // The number of commands is now 13.
+    const EXPLORER_CMDS: [CmdNode; 13] = [
         CmdNode { bytes: &[0xAE], deps: &[] },      // Display off
         CmdNode { bytes: &[0xD5, 0x51], deps: &[] }, // Set Display Clock Divide Ratio/Oscillator Frequency
         CmdNode { bytes: &[0xCA, 0x7F], deps: &[] }, // Set Multiplex Ratio
@@ -42,28 +43,34 @@ fn main() -> ! {
         CmdNode { bytes: &[0xD9, 0x22], deps: &[] }, // Set Pre-charge Period
         CmdNode { bytes: &[0xDB, 0x35], deps: &[] }, // Set VCOMH Deselect Level
         CmdNode { bytes: &[0x8D, 0x14], deps: &[] }, // Set Charge Pump
+        CmdNode { bytes: &[0xA6], deps: &[] },      // Normal Display
+        CmdNode { bytes: &[0xAF], deps: &[] },      // Display on
     ];
 
     // This is the flat byte array for the initial scan.
-    const INIT_SEQ_BYTES: [u8; 19] = [
+    // The number of bytes is now 21.
+    const INIT_SEQ_BYTES: [u8; 21] = [
         0xAE, 0xD5, 0x51, 0xCA, 0x7F, 0xA2, 0x00, 0xA1, 0x00,
         0xA0, 0xC8, 0xAD, 0x8A, 0xD9, 0x22, 0xDB, 0x35, 0x8D,
-        0x14,
+        0x14, 0xA6, 0xAF,
     ];
 
-    let explorer = Explorer::<11> { sequence: &EXPLORER_CMDS };
-    
+    let explorer = Explorer::<13> { sequence: &EXPLORER_CMDS };
+
     // ---- Run exploring ----
-    // Use the `INIT_SEQ_BYTES` for the initial scan to discover responsive commands.
-    // The prefix is 0x00, as defined in the provided `explorer.rs` example.
-    let _ = run_explorer::<_, _, 11, 128>(
+    // The `run_explorer` function returns a `Result`.
+    // We handle the `Err` case explicitly to print the error message.
+    if let Err(e) = run_explorer::<_, _, 13, 128>(
         &explorer,
         &mut i2c,
         &mut serial,
         &INIT_SEQ_BYTES,
         0x00, // Prefix for commands (e.g., 0x00 for command mode)
         LogLevel::Verbose
-    );
+    ) {
+        // Print the error if the exploration fails.
+        writeln!(serial, "[error] Exploration failed: {:?}", e).ok();
+    }
 
     loop {}
 }

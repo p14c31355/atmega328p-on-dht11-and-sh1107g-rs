@@ -3,11 +3,9 @@
 
 use arduino_hal::prelude::*;
 use panic_halt as _;
-use core::fmt::Write;
+use embedded_io::Write;
 
 use dvcdbg::prelude::*;
-use dvcdbg::explorer::{Explorer, CmdNode};
-use dvcdbg::scanner::run_explorer;
 
 adapt_serial!(UnoWrapper);
 

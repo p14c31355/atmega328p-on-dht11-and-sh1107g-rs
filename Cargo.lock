@@ -32,7 +32,7 @@ dependencies = [
  "dvcdbg",
  "embedded-graphics",
  "embedded-graphics-core",
- "embedded-hal 1.0.0",
+ "embedded-hal 0.2.7",
  "embedded-io",
  "heapless 0.9.1",
  "nb 1.1.0",

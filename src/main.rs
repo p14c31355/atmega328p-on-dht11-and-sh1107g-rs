@@ -29,7 +29,8 @@ fn main() -> ! {
     writeln!(serial, "[Info] I2C initialized").ok();
 
     // ---- Explorer for SH1107G initialization sequence ----
-    const INIT_SEQUENCE_CMDS: [CmdNode; 11] = [
+    // This is the sequence for the Explorer's permutation algorithm.
+    const EXPLORER_CMDS: [CmdNode; 11] = [
         CmdNode { bytes: &[0xAE], deps: &[] },      // Display off
         CmdNode { bytes: &[0xD5, 0x51], deps: &[] }, // Set Display Clock Divide Ratio/Oscillator Frequency
         CmdNode { bytes: &[0xCA, 0x7F], deps: &[] }, // Set Multiplex Ratio
@@ -43,18 +44,18 @@ fn main() -> ! {
         CmdNode { bytes: &[0x8D, 0x14], deps: &[] }, // Set Charge Pump
     ];
 
-    // The init_sequence parameter for run_explorer is a slice of u8,
-    // which contains only the command bytes, not the CmdNode structure.
-    // Let's create a flat array of command bytes.
+    // This is the flat byte array for the initial scan.
     const INIT_SEQ_BYTES: [u8; 19] = [
         0xAE, 0xD5, 0x51, 0xCA, 0x7F, 0xA2, 0x00, 0xA1, 0x00,
         0xA0, 0xC8, 0xAD, 0x8A, 0xD9, 0x22, 0xDB, 0x35, 0x8D,
         0x14,
     ];
 
-    let explorer = Explorer::<11> { sequence: &INIT_SEQUENCE_CMDS };
+    let explorer = Explorer::<11> { sequence: &EXPLORER_CMDS };
     
     // ---- Run exploring ----
+    // Use the `INIT_SEQ_BYTES` for the initial scan to discover responsive commands.
+    // The prefix is 0x00, as defined in the provided `explorer.rs` example.
     let _ = run_explorer::<_, _, 11, 128>(
         &explorer,
         &mut i2c,

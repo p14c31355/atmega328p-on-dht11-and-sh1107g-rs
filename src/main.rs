@@ -29,13 +29,37 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2C initialized").ok();
 
-    // ---- Empty for error verification ----
+    // ---- Explorer for SH1107G initialization sequence ----
+    const INIT_COMMANDS: [CmdNode; 21] = [
+        CmdNode { bytes: &[0xAE], deps: &[] }, // Display off
+        CmdNode { bytes: &[0xD5], deps: &[] }, // Set Display Clock Divide Ratio/Oscillator Frequency
+        CmdNode { bytes: &[0x51], deps: &[] }, 
+        CmdNode { bytes: &[0xCA], deps: &[] }, // Set Multiplex Ratio
+        CmdNode { bytes: &[0x7F], deps: &[] },
+        CmdNode { bytes: &[0xA2], deps: &[] }, // Set Display Offset
+        CmdNode { bytes: &[0x00], deps: &[] },
+        CmdNode { bytes: &[0xA1], deps: &[] }, // Set Display Start Line
+        CmdNode { bytes: &[0x00], deps: &[] },
+        CmdNode { bytes: &[0xA0], deps: &[] }, // Set Segment Re-map
+        CmdNode { bytes: &[0xC8], deps: &[] }, // Set COM Output Scan Direction
+        CmdNode { bytes: &[0xAD], deps: &[] }, // Set Vpp
+        CmdNode { bytes: &[0x8A], deps: &[] },
+        CmdNode { bytes: &[0xD9], deps: &[] }, // Set Pre-charge Period
+        CmdNode { bytes: &[0x22], deps: &[] },
+        CmdNode { bytes: &[0xDB], deps: &[] }, // Set VCOMH Deselect Level
+        CmdNode { bytes: &[0x35], deps: &[] },
+        CmdNode { bytes: &[0x8D], deps: &[] }, // Set Charge Pump
+        CmdNode { bytes: &[0x14], deps: &[] },
+        CmdNode { bytes: &[0xA6], deps: &[] }, // Normal Display
+        CmdNode { bytes: &[0xAF], deps: &[] }, // Display on
+    ];
+
     let init_seq: [u8; 0] = [];
-    let cmds: [CmdNode; 0] = [];
-    let explorer = Explorer::<0> { sequence: &cmds };
+    let cmds = &INIT_COMMANDS;
+    let explorer = Explorer::<14> { sequence: cmds };
 
     // ---- Run exploring ----
-    let _ = run_explorer::<_, _, 0, 0>(
+    let _ = run_explorer::<_, _, 14, 0>(
         &explorer,
         &mut i2c,
         &mut serial,

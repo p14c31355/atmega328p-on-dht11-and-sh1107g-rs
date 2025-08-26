@@ -50,26 +50,23 @@ fn main() -> ! {
     scan_i2c(&mut i2c, &mut logger, LogLevel::Quiet);
 
     // 2️⃣ デバイスアドレスを手動指定（スキャン結果に置き換えてもOK）
-    let _ = writeln!(logger, "[log] Start SH1107G safe init");
+    let addr = 0x3C;
+    delay.delay_ms(50); // 電源投入後少し待つ
 
-    // 3️⃣ Explorer を使用して安全な初期化シーケンスを実行
-    let explorer = Explorer {
-        sequence: SH1107G_NODES,
-    };
-
-    // run_explorer は内部で I2C スキャンとコマンド実行を行う
-    // 0x3C は SH1107G の一般的なI2Cアドレス
-    match run_explorer::<_, _, 128>(
-        &explorer,
-        &mut i2c,
-        &mut logger,
-        &[], // 初期スキャンは scan_i2c で済ませているため空
-        0x3C,
-        LogLevel::Verbose,
-    ) {
-        Ok(_) => writeln!(logger, "[ok] Explorer finished successfully.").unwrap(),
-        Err(e) => writeln!(logger, "[error] Explorer failed: {:?}", e).unwrap(),
-    };
+    // 3️⃣ 応答確認付きで順序通りに送信
+    for node in SH1107G_NODES {
+        match dvcdbg::compat::I2cCompat::write(&mut i2c, addr, node.bytes) {
+            Ok(_) => {
+                let _ = writeln!(logger, "[ok] wrote bytes:");
+                let _ = dvcdbg::compat::ascii::write_bytes_hex_prefixed(&mut logger, node.bytes);
+                let _ = writeln!(logger, "");
+            }
+            Err(e) => {
+                let _ = writeln!(logger, "[error] write failed: {:?}", e);
+            }
+        }
+        delay.delay_ms(2); // コマンド間に短い間隔
+    }
 
     let _ = writeln!(logger, "[oled] init sequence applied");
 

@@ -28,6 +28,7 @@ fn main() -> ! {
         400_000,
     );
 
+    let _found = scan_i2c(&mut i2c, &mut serial, LogLevel::Verbose);
     // ---- SH1107G の候補初期化シーケンス ----
     // データシート準拠の代表的なコマンド群
     let init_seq: [u8; 5] = [

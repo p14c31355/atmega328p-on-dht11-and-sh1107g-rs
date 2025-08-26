@@ -51,7 +51,7 @@ fn main() -> ! {
 
     // 2️⃣ デバイスアドレスを手動指定（スキャン結果に置き換えてもOK）
     let addr = 0x3C;
-    delay.delay_ms(50); // 電源投入後少し待つ
+    delay.delay_ms(50u16); // 電源投入後少し待つ
 
     // 3️⃣ 応答確認付きで順序通りに送信
     for node in SH1107G_NODES {
@@ -65,7 +65,7 @@ fn main() -> ! {
                 let _ = writeln!(logger, "[error] write failed: {:?}", e);
             }
         }
-        delay.delay_ms(2); // コマンド間に短い間隔
+        delay.delay_ms(2u16); // コマンド間に短い間隔
     }
 
     let _ = writeln!(logger, "[oled] init sequence applied");

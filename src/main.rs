@@ -26,66 +26,58 @@ fn main() -> ! {
         100000,
     );
 
-    //let _found = scan_i2c(&mut i2c, &mut serial, LogLevel::Verbose);
     // ---- SH1107G の候補初期化シーケンス ----
-    // データシート準拠の代表的なコマンド群
     let init_seq: [u8; 24] = [
-    0xAE, // Display OFF
-    0xDC, 0x00, // Display start line = 0
-    0x81, 0x2F, // Contrast
-    0x20,  0x02, // Memory addressing mode: page
-    0xA0, // Segment remap normal
-    0xC0, // Common output scan direction normal
-    0xA4, // Entire display ON from RAM
-    0xA6, // Normal display
-    0xA8, 0x7F, // Multiplex ratio 128
-    0xD3, 0x60, // Display offset
-    0xD5, 0x51, // Oscillator frequency
-    0xD9, 0x22, // Pre-charge period
-    0xDB, 0x35, // VCOM deselect level
-    0xAD, 0x8A, // DC-DC control
-    0xAF,       // Display ON
-];
+        0xAE, // Display OFF
+        0xDC, 0x00, // Display start line = 0
+        0x81, 0x2F, // Contrast
+        0x20, 0x02, // Memory addressing mode: page
+        0xA0, // Segment remap normal
+        0xC0, // Common output scan direction normal
+        0xA4, // Entire display ON from RAM
+        0xA6, // Normal display
+        0xA8, 0x7F, // Multiplex ratio 128
+        0xD3, 0x60, // Display offset
+        0xD5, 0x51, // Oscillator frequency
+        0xD9, 0x22, // Pre-charge period
+        0xDB, 0x35, // VCOM deselect level
+        0xAD, 0x8A, // DC-DC control
+        0xAF,       // Display ON
+    ];
 
     // ---- Explorer 用コマンドノード定義 ----
-    // CmdNode { bytes: コマンド配列, deps: 依存関係インデックス }
-    let cmds: [CmdNode; 5] = [
-        CmdNode { bytes: &[0xAE], deps: &[] }, // OFF
-        CmdNode { bytes: &[0xA1], deps: &[] }, // Segment remap
-        CmdNode { bytes: &[0xA6], deps: &[] }, // Normal display
-        CmdNode { bytes: &[0xA8], deps: &[] }, // Multiplex
-        CmdNode { bytes: &[0xAF], deps: &[0] }, // ON (OFFの後)
+    // `CmdNode` { `bytes`: コマンド配列, `deps`: 依存関係インデックス }
+    // 2バイトコマンドも考慮して、コマンド数は15
+    const NUM_CMDS: usize = 15;
+    let cmds: [CmdNode; NUM_CMDS] = [
+        CmdNode { bytes: &[0xAE], deps: &[] },
+        CmdNode { bytes: &[0xDC, 0x00], deps: &[] },
+        CmdNode { bytes: &[0x81, 0x2F], deps: &[] },
+        CmdNode { bytes: &[0x20, 0x02], deps: &[] },
+        CmdNode { bytes: &[0xA0], deps: &[] },
+        CmdNode { bytes: &[0xC0], deps: &[] },
+        CmdNode { bytes: &[0xA4], deps: &[] },
+        CmdNode { bytes: &[0xA6], deps: &[] },
+        CmdNode { bytes: &[0xA8, 0x7F], deps: &[] },
+        CmdNode { bytes: &[0xD3, 0x60], deps: &[] },
+        CmdNode { bytes: &[0xD5, 0x51], deps: &[] },
+        CmdNode { bytes: &[0xD9, 0x22], deps: &[] },
+        CmdNode { bytes: &[0xDB, 0x35], deps: &[] },
+        CmdNode { bytes: &[0xAD, 0x8A], deps: &[] },
+        CmdNode { bytes: &[0xAF], deps: &[0] }, // ONコマンド(0xAF)はOFFコマンド(0xAE)に依存
     ];
-    let explorer = Explorer::<8> { sequence: &cmds };
+    let explorer = Explorer::<NUM_CMDS> { sequence: &cmds };
 
     // ---- 探索実行 ----
-    // prefix = 0x00 → コマンドモードで送信
-    let _ = run_explorer::<_, _, 8, 32>(&explorer, &mut i2c, &mut serial, &init_seq, 0x00, LogLevel::Quiet);
+    // `run_explorer`のジェネリクスをコマンド数15とシーケンス長24に修正
+    let _ = run_explorer::<_, _, NUM_CMDS, 24>(
+        &explorer,
+        &mut i2c,
+        &mut serial,
+        &init_seq,
+        0x3C,
+        LogLevel::Verbose
+    );
 
     loop {}
 }
-
-/*0xAE
- 0xDC
- 0x00
- 0x81
- 0x2F
- 0x20
- 0x02
- 0xA0
- 0xC0
- 0xA4
- 0xA6
- 0xA8
- 0x7F
- 0xD3
- 0x60
- 0xD5
- 0x51
- 0xD9
- 0x22
- 0xDB
- 0x35
- 0xAD
- 0x8A
- 0xAF */

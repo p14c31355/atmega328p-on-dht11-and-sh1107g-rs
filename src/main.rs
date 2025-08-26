@@ -7,8 +7,6 @@ use arduino_hal::prelude::*;
 use panic_halt as _;
 use dvcdbg::prelude::*;
 use embedded_graphics_core::draw_target::DrawTarget;
-use embedded_graphics_core::geometry::{Point, Size};
-use embedded_graphics_core::pixelcolor::BinaryColor;
 
 adapt_serial!(UnoWrapper);
 
@@ -65,6 +63,9 @@ fn main() -> ! {
 }
 
 // dvcdbg UnoWrapper で Sh1107gError を表示
-fn log_error(logger: &mut UnoWrapper<impl Write>, msg: &str, err: &Sh1107gError<impl core::fmt::Debug>) {
-    let _ = writeln!(logger, "[error] {}: {:?}", msg, err);
+fn log_error<E>(logger: &mut UnoWrapper<impl dvcdbg::compat::SerialCompat>, msg: &str, err: &Sh1107gError<E>)
+where
+    E: core::fmt::Debug,
+{
+    let _ = writeln!(logger, "[error] {}: {:?}\n", msg, err);
 }

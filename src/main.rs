@@ -6,7 +6,6 @@ use embedded_io::Write;
 use panic_abort as _; // panic-abort に変更済みの場合はこちらを使用
 
 use dvcdbg::prelude::*;
-use dvcdbg::compat::I2cCompat;
 
 adapt_serial!(UnoWrapper);
 
@@ -30,48 +29,15 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2Cの初期化が完了しました。").ok();
 
-    // ---- SH1107G の候補初期化シーケンス ----
-    let init_seq: [u8; 39] = [
-        0x00, 0xAE, 
-        0x00, 0xDC, 0x00,
-        0x00, 0x81, 0x2F,
-        0x00, 0x20, 0x02,
-        0x00, 0xA0,
-        0x00, 0xC0,
-        0x00, 0xA4,
-        0x00, 0xA6,
-        0x00, 0xA8, 0x7F,
-        0x00, 0xD3, 0x60,
-        0x00, 0xD5, 0x51,
-        0x00, 0xD9, 0x22,
-        0x00, 0xDB, 0x35,
-        0x00, 0xAD, 0x8A,
-        0x00, 0xAF,
-    ];
-
-    // ---- Explorer 用コマンドノード定義 ----
-    const NUM_CMDS: usize = 15;
-    let cmds: [CmdNode; NUM_CMDS] = [
-        CmdNode { bytes: &[0x00, 0xAE], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xDC, 0x00], deps: &[] },
-        CmdNode { bytes: &[0x00, 0x81, 0x2F], deps: &[] },
-        CmdNode { bytes: &[0x00, 0x20, 0x02], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA0], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xC0], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA4], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA6], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA8, 0x7F], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xD3, 0x60], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xD5, 0x51], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xD9, 0x22], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xDB, 0x35], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xAD, 0x8A], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xAF], deps: &[0] },
-    ];
-    let explorer = Explorer::<NUM_CMDS> { sequence: &cmds };
+    // ---- 検証のため、init_seqとcmdsを空の配列で定義 ----
+    // 元の配列はコメントアウトしてください
+    let init_seq: [u8; 0] = [];
+    let cmds: [CmdNode; 0] = [];
+    let explorer = Explorer::<0> { sequence: &cmds };
 
     // ---- 探索実行 ----
-    let _ = run_explorer::<_, _, NUM_CMDS, 39>(
+    // Explorerのジェネリクスパラメータを0に修正
+    let _ = run_explorer::<_, _, 0, 0>(
         &explorer,
         &mut i2c,
         &mut serial,

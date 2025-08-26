@@ -4,8 +4,8 @@
 use arduino_hal::i2c;
 use arduino_hal::prelude::*;
 use dvcdbg::prelude::*;
+use dvcdbg::compat::ascii;
 use embedded_io::Write;
-use heapless::{String, Vec};
 use panic_halt as _;
 
 adapt_serial!(UnoWrapper);
@@ -44,33 +44,42 @@ fn main() -> ! {
 
     let serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut serial_wrapper = UnoWrapper(serial);
-    let logger = &mut serial_wrapper;
+    let mut logger = &mut serial_wrapper;
 
     let _ = writeln!(logger, "[log] Start SH1107G safe init");
 
-    // 1️⃣ I2C バススキャン（ログ最小化）
-    scan_i2c(&mut i2c, logger, LogLevel::Quiet);
+    // 1️⃣ I2C バススキャン
+    scan_i2c(&mut i2c, &mut logger, LogLevel::Quiet);
 
-    // 2️⃣ 初期化コマンド候補
+    // 2️⃣ 初期化コマンド候補（バイト値だけ）
     let init_candidates: &[u8] = &[
         0xAE, 0xDC, 0x81, 0x20, 0xA0, 0xC0, 0xA4, 0xA6,
         0xA8, 0xD3, 0xD5, 0xD9, 0xDB, 0xAD, 0xAF,
     ];
 
     // 3️⃣ 実機応答があるコマンドだけ抽出
-    let successful_init = scan_init_sequence(&mut i2c, logger, init_candidates, LogLevel::Quiet);
+    let successful_init = scan_init_sequence(&mut i2c, &mut logger, init_candidates, LogLevel::Quiet);
 
-    // 4️⃣ ASCII 化して表示
-    let mut ascii_buf: String<128> = String::new();
-    for b in &successful_init {
-        let esc = dvcdbg::compat::ascii::ascii_escape(&[*b]);
-        let _ = ascii_buf.push_str(&esc);
-    }
-    let _ = writeln!(logger, "[scan] init sequence filtered: {} cmds {}", successful_init.len(), ascii_buf);
+    let _ = writeln!(logger, "[scan] init sequence filtered: {} cmds", successful_init.len());
 
-    // 5️⃣ Explorer 実行（SH1107G_NODES 使用）
+    // 4️⃣ Explorer 実行
     let explorer = Explorer { sequence: SH1107G_NODES };
-    let _ = run_explorer::<_, _, 128>(&explorer, &mut i2c, logger, &successful_init, 0x00, LogLevel::Quiet);
+
+    for node in SH1107G_NODES {
+        let mut ascii_buf: heapless::String<32> = heapless::String::new();
+        ascii::write_bytes_hex_prefixed(&mut ascii_buf, node.bytes).ok();
+
+        let _ = writeln!(logger, "[explorer] sending command: {}", ascii_buf);
+    }
+
+    let _ = run_explorer::<_, _, 128>(
+        &explorer,
+        &mut i2c,
+        &mut logger,
+        &successful_init,
+        0x00,
+        LogLevel::Quiet,
+    );
 
     let _ = writeln!(logger, "[oled] init sequence applied");
 

@@ -1,85 +1,57 @@
 #![no_std]
 #![no_main]
 
-use embedded_io::Write;
-use core::fmt;
-
 use arduino_hal::prelude::*;
 use panic_halt as _;
+use core::fmt::Write;
+
 use dvcdbg::prelude::*;
-use embedded_graphics_core::{
-    draw_target::DrawTarget,
-    geometry::Point,
-    pixelcolor::BinaryColor,
-    Pixel,
-};
-use sh1107g_rs::{Sh1107gBuilder, error::Sh1107gError};
+use dvcdbg::explorer::{Explorer, CmdNode};
+use dvcdbg::scanner::run_explorer;
 
 adapt_serial!(UnoWrapper);
-
-// UnoWrapper に fmt::Write を実装して writeln! を有効化
-impl<T> core::fmt::Write for UnoWrapper<T>
-where
-    T: embedded_io::Write + dvcdbg::compat::SerialCompat,
-{
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        self.0.write_all(s.as_bytes()).map_err(|_| core::fmt::Error)
-    }
-}
-
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let mut delay = arduino_hal::Delay::new();
+
+    // シリアル初期化
+    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
+    writeln!(serial, "\n[SH1107G Explorer Test]").ok();
 
     // I2C 初期化
-    let i2c = arduino_hal::i2c::I2c::new(
+    let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(),
-        pins.a5.into_pull_up_input(),
-        100_000,
+        pins.a4.into_pull_up_input(), // SDA
+        pins.a5.into_pull_up_input(), // SCL
+        400_000,
     );
 
-    // シリアルログ初期化
-    let serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut logger = UnoWrapper(serial);
+    // ---- SH1107G の候補初期化シーケンス ----
+    // データシート準拠の代表的なコマンド群
+    let init_seq: [u8; 5] = [
+        0xAE, // Display OFF
+        0xA1, // Segment remap
+        0xA6, // Normal display
+        0xA8, // Multiplex ratio
+        0xAF, // Display ON
+    ];
 
-    // SH1107G 初期化
-    let mut display = Sh1107gBuilder::new(i2c)
-        .clear_on_init(true)
-        .build();
+    // ---- Explorer 用コマンドノード定義 ----
+    // CmdNode { bytes: コマンド配列, deps: 依存関係インデックス }
+    let cmds: [CmdNode; 5] = [
+        CmdNode { bytes: &[0xAE], deps: &[] }, // OFF
+        CmdNode { bytes: &[0xA1], deps: &[] }, // Segment remap
+        CmdNode { bytes: &[0xA6], deps: &[] }, // Normal display
+        CmdNode { bytes: &[0xA8], deps: &[] }, // Multiplex
+        CmdNode { bytes: &[0xAF], deps: &[0] }, // ON (OFFの後)
+    ];
+    let explorer = Explorer::<8> { sequence: &cmds };
 
-    let _ = writeln!(logger, "[log] Init SH1107G...");
+    // ---- 探索実行 ----
+    // prefix = 0x00 → コマンドモードで送信
+    let _ = run_explorer::<_, _, 8, 32>(&explorer, &mut i2c, &mut serial, &init_seq, 0x3C, LogLevel::Verbose);
 
-    if let Err(e) = display.init() {
-        log_error(&mut logger, "init failed", &e);
-    }
-
-    // 小さなテスト描画（左上 8x8 ドット）
-    for y in 0..8 {
-        for x in 0..8 {
-            let _ = display.draw_iter(core::iter::once(
-                Pixel(Point::new(x, y), BinaryColor::On),
-            ));
-        }
-    }
-
-    if let Err(e) = display.flush() {
-        log_error(&mut logger, "flush failed", &e);
-    }
-
-    loop {
-        delay.delay_ms(1000u16);
-    }
-}
-
-// SH1107G エラーを UnoWrapper に表示
-fn log_error<E, W>(logger: &mut UnoWrapper<W>, msg: &str, err: &Sh1107gError<E>)
-where
-    E: core::fmt::Debug,
-    W: embedded_io::Write + dvcdbg::compat::SerialCompat,
-{
-    let _ = writeln!(logger, "[error] {}: {:?}", msg, err);
+    loop {}
 }

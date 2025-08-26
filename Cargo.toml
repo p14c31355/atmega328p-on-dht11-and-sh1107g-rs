@@ -12,7 +12,7 @@ path = "src/main.rs"
 [dependencies]
 panic-abort = "0.3.2"
 embedded-graphics = "0.8.1"
-embedded-graphics-core = "0.4.0" # 明示的に追加
+embedded-graphics-core = "0.4.0"
 heapless = "0.9.1"
 nb = "1.1.0"
 embedded-hal = "0.2.7"

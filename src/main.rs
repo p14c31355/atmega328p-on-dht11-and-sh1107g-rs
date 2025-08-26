@@ -60,18 +60,24 @@ fn main() -> ! {
     }
 
     // 2️⃣ 全ページ・全列をクリア（0x00 = 黒）
-    for page in 0..8 {
-        let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0xB0 + page]); // ページ設定
-        let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0x02, 0x10]);   // 列アドレスを左オフセット考慮で設定
+    // ページごとに列をクリア
+for page in 0..8 {
+    let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0xB0 + page]); // ページ設定
+    let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &[0x00, 0x02, 0x10]);   // 列アドレス設定
 
-        let mut data_buf = [0u8; 16 + 1]; // 0x40 + 16バイトで128列を送信
-        data_buf[0] = 0x40; // データフラグ
-        for chunk in data_buf[1..].chunks_mut(8) {
-            for b in chunk.iter_mut() { *b = 0x00; } // 黒で塗りつぶす
-            let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &data_buf[0..=chunk.len()]); 
-        }
-        let _ = writeln!(logger, "[ok] cleared page {}", page);
+    // 8バイトずつ送信
+    let mut chunk_buf = [0x40u8; 9]; // 0x40 + 8バイト
+    for b in chunk_buf[1..].iter_mut() {
+        *b = 0x00; // 黒
     }
+
+    for _ in 0..16 { // 16 * 8 = 128列
+        let _ = dvcdbg::compat::I2cCompat::write(&mut i2c, addr, &chunk_buf);
+    }
+
+    let _ = writeln!(logger, "[ok] cleared page {}", page);
+}
+
 
     let _ = writeln!(logger, "[oled] init sequence applied and screen fully cleared");
 

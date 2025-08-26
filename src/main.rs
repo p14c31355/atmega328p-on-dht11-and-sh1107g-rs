@@ -17,6 +17,17 @@ use sh1107g_rs::{Sh1107gBuilder, error::Sh1107gError};
 
 adapt_serial!(UnoWrapper);
 
+// UnoWrapper に fmt::Write を実装して writeln! を有効化
+impl<T> core::fmt::Write for UnoWrapper<T>
+where
+    T: embedded_io::Write + dvcdbg::compat::SerialCompat,
+{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.0.write_all(s.as_bytes()).map_err(|_| core::fmt::Error)
+    }
+}
+
+
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();

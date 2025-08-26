@@ -29,59 +29,38 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2Cの初期化が完了しました。").ok();
 
-// ---- SH1107G の候補初期化シーケンス ----
-// 各コマンドの前に制御バイト 0x00 を追加
-// これを単一のバイト列として定義
-let init_seq: [u8; 39] = [
-    0x00, 0xAE, // Display OFF
-    0x00, 0xDC, 0x00, // Display start line = 0
-    0x00, 0x81, 0x2F, // Contrast
-    0x00, 0x20, 0x02, // Memory addressing mode: page
-    0x00, 0xA0, // Segment remap normal
-    0x00, 0xC0, // Common output scan direction normal
-    0x00, 0xA4, // Entire display ON from RAM
-    0x00, 0xA6, // Normal display
-    0x00, 0xA8, 0x7F, // Multiplex ratio 128
-    0x00, 0xD3, 0x60, // Display offset
-    0x00, 0xD5, 0x51, // Oscillator frequency
-    0x00, 0xD9, 0x22, // Pre-charge period
-    0x00, 0xDB, 0x35, // VCOM deselect level
-    0x00, 0xAD, 0x8A, // DC-DC control
-    0x00, 0xAF,       // Display ON
-];
-
-    // ---- Explorer 用コマンドノード定義 ----
-    // 各コマンドの前に制御バイト 0x00 を追加
-    // `CmdNode` { `bytes`: コマンド配列, `deps`: 依存関係インデックス }
-    const NUM_CMDS: usize = 15;
-    let cmds: [CmdNode; NUM_CMDS] = [
-        CmdNode { bytes: &[0x00, 0xAE], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xDC, 0x00], deps: &[] },
-        CmdNode { bytes: &[0x00, 0x81, 0x2F], deps: &[] },
-        CmdNode { bytes: &[0x00, 0x20, 0x02], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA0], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xC0], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA4], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA6], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xA8, 0x7F], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xD3, 0x60], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xD5, 0x51], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xD9, 0x22], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xDB, 0x35], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xAD, 0x8A], deps: &[] },
-        CmdNode { bytes: &[0x00, 0xAF], deps: &[] }, // ONコマンド(0xAF)はOFFコマンド(0xAE)に依存
+    // ---- SH1107G の候補初期化シーケンス ----
+    // 制御バイト(0x00)とコマンドを単一のバイト配列として定義
+    let init_seq: [u8; 39] = [
+        0x00, 0xAE, // Display OFF (2 bytes)
+        0x00, 0xDC, 0x00, // Display start line = 0 (3 bytes)
+        0x00, 0x81, 0x2F, // Contrast (3 bytes)
+        0x00, 0x20, 0x02, // Memory addressing mode: page (3 bytes)
+        0x00, 0xA0, // Segment remap normal (2 bytes)
+        0x00, 0xC0, // Common output scan direction normal (2 bytes)
+        0x00, 0xA4, // Entire display ON from RAM (2 bytes)
+        0x00, 0xA6, // Normal display (2 bytes)
+        0x00, 0xA8, 0x7F, // Multiplex ratio 128 (3 bytes)
+        0x00, 0xD3, 0x60, // Display offset (3 bytes)
+        0x00, 0xD5, 0x51, // Oscillator frequency (3 bytes)
+        0x00, 0xD9, 0x22, // Pre-charge period (3 bytes)
+        0x00, 0xDB, 0x35, // VCOM deselect level (3 bytes)
+        0x00, 0xAD, 0x8A, // DC-DC control (3 bytes)
+        0x00, 0xAF,       // Display ON (2 bytes)
     ];
-    let explorer = Explorer::<NUM_CMDS> { sequence: &cmds };
 
-    // ---- 探索実行 ----
-    let _ = run_explorer::<_, _, NUM_CMDS, 39>(
-        &explorer,
-        &mut i2c,
-        &mut serial,
-        &init_seq,
-        0x3C,
-        LogLevel::Verbose
-    );
+    // ---- 探索実行の代わりに、初期化シーケンスを直接送信 ----
+    writeln!(serial, "[Info] 初期化シーケンスを直接送信します...").ok();
+    
+    // I2C アドレス 0x3C に init_seq 全体を一度に書き込む
+    // SH1107Gがこれを単一のトランザクションとして処理する
+    let result = dvcdbg::compat::I2cCompat::write(&mut i2c, 0x3C, &init_seq);
+
+    // 結果をログに出力
+    match result {
+        Ok(_) => writeln!(serial, "[Success] 初期化シーケンスの送信に成功しました。").ok(),
+        Err(e) => writeln!(serial, "[Error] 初期化シーケンスの送信に失敗しました: {:?}", e).ok(),
+    };
 
     loop {}
 }

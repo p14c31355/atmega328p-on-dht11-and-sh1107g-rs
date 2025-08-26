@@ -1,14 +1,14 @@
 #![no_std]
 #![no_main]
 
+use core::fmt::Write;
+
 use arduino_hal::prelude::*;
 use panic_halt as _;
 use dvcdbg::prelude::*;
-use core::fmt::Write;
 use embedded_graphics_core::draw_target::DrawTarget;
 use embedded_graphics_core::geometry::{Point, Size};
 use embedded_graphics_core::pixelcolor::BinaryColor;
-use dvcdbg::compat::serial_compat::{SerialEio, UartLike}; // SerialEioとUartLikeをインポート
 
 adapt_serial!(UnoWrapper);
 
@@ -30,10 +30,8 @@ fn main() -> ! {
         100_000,
     );
 
-    let serial_hal = arduino_hal::default_serial!(dp, pins, 57600);
-    let serial_writer = UsartWriter(serial_hal);
-    let serial_eio = SerialEio(serial_writer);
-    let mut logger = UnoWrapper(serial_eio);
+    let serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut logger = UnoWrapper(serial);
 
     let mut display = Sh1107gBuilder::new(i2c)
         .clear_on_init(true)
@@ -67,6 +65,6 @@ fn main() -> ! {
 }
 
 // dvcdbg UnoWrapper で Sh1107gError を表示
-fn log_error(logger: &mut UnoWrapper<SerialEio<UsartWriter<impl embedded_hal::serial::Write<u8>>>>, msg: &str, err: &Sh1107gError<impl core::fmt::Debug>) {
+fn log_error(logger: &mut UnoWrapper<impl Write>, msg: &str, err: &Sh1107gError<impl core::fmt::Debug>) {
     let _ = writeln!(logger, "[error] {}: {:?}", msg, err);
 }

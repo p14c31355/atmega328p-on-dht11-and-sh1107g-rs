@@ -29,24 +29,24 @@ fn main() -> ! {
 
     // ---- Explorer 用コマンド定義 ----
     // 0x00 制御バイトを各コマンドの先頭に含めています
-    // 依存関係を静的定義
-const DEP_0: &[usize] = &[];
-const DEP_1: &[usize] = &[0];
-const DEP_2: &[usize] = &[1];
-const DEP_3: &[usize] = &[2];
-const DEP_4: &[usize] = &[3];
-const DEP_5: &[usize] = &[4];
-const DEP_6: &[usize] = &[5];
-const DEP_7: &[usize] = &[6];
-const DEP_8: &[usize] = &[7];
-const DEP_9: &[usize] = &[8];
-const DEP_10: &[usize] = &[9];
-const DEP_11: &[usize] = &[10];
-const DEP_12: &[usize] = &[11];
-const DEP_13: &[usize] = &[12];
+// ---- 依存関係を静的定義 ----
+static DEP_0: &[usize] = &[];
+static DEP_1: &[usize] = &[0];
+static DEP_2: &[usize] = &[1];
+static DEP_3: &[usize] = &[2];
+static DEP_4: &[usize] = &[3];
+static DEP_5: &[usize] = &[4];
+static DEP_6: &[usize] = &[5];
+static DEP_7: &[usize] = &[6];
+static DEP_8: &[usize] = &[7];
+static DEP_9: &[usize] = &[8];
+static DEP_10: &[usize] = &[9];
+static DEP_11: &[usize] = &[10];
+static DEP_12: &[usize] = &[11];
+static DEP_13: &[usize] = &[12];
 
-// コマンド配列
-let explorer_cmds: [CmdNode; 14] = [
+// ---- コマンド配列 ----
+static EXPLORER_CMDS: [CmdNode; 14] = [
     CmdNode { bytes: &[0xAE], deps: DEP_0 },       // 0: Display OFF
     CmdNode { bytes: &[0xD5, 0x51], deps: DEP_1 }, // 1: Clock / Oscillator
     CmdNode { bytes: &[0xA8, 0x3F], deps: DEP_2 }, // 2: Multiplex Ratio
@@ -67,12 +67,12 @@ let explorer_cmds: [CmdNode; 14] = [
 
 
     let explorer = Explorer::<14> {
-        sequence: &explorer_cmds,
+        sequence: &EXPLORER_CMDS,
     };
 
     // ---- Explore ----
     writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
-    if let Err(e) = run_single_sequence_explorer::<_, _, 14, 2048>(
+    if let Err(e) = run_single_sequence_explorer::<_, _, 14, 16384>(
         &explorer,
         &mut i2c,
         &mut serial,

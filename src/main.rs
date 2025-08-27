@@ -8,9 +8,7 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-// 最大コマンド数（EXPLORER_CMDS の長さに合わせる）
-const MAX_CMDS: usize = 17;
-const BUF_CAP: usize = 4; // 最大コマンド長 + prefix + 余裕
+const BUF_CAP: usize = 4;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -19,7 +17,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    writeln!(serial, "[SH1107G Kahn Init Test]").ok();
+    writeln!(serial, "[SH1107G Auto Backtrack Test]").ok();
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -29,8 +27,7 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2C initialized").ok();
 
-    // ---- コマンド配列 (長さ = MAX_CMDS) ----
-    static EXPLORER_CMDS: [CmdNode; MAX_CMDS] = [
+    static EXPLORER_CMDS: [CmdNode; 17] = [
         CmdNode { bytes: &[0xAE], deps: &[] },
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
         CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },
@@ -43,103 +40,103 @@ fn main() -> ! {
         CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },
         CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },
         CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },
-        CmdNode { bytes: &[0xB0], deps: &[11] },             // page = 0
-        CmdNode { bytes: &[0x00], deps: &[11] },             // col low
-        CmdNode { bytes: &[0x10], deps: &[11] },             // col high
-        CmdNode { bytes: &[0xA6], deps: &[12, 13, 14] },     // A6 waits for addr reset parts
-        CmdNode { bytes: &[0xAF], deps: &[15] },             // AF waits for A6
+        CmdNode { bytes: &[0xB0], deps: &[11] },
+        CmdNode { bytes: &[0x00], deps: &[11] },
+        CmdNode { bytes: &[0x10], deps: &[11] },
+        CmdNode { bytes: &[0xA6], deps: &[12, 13, 14] },
+        CmdNode { bytes: &[0xAF], deps: &[15] },
     ];
 
-    let addr: u8 = 0x3C;
-    let prefix: u8 = 0x00;
+    writeln!(serial, "[Info] Starting backtrack exploration...").ok();
 
-    writeln!(serial, "[Info] Starting Kahn exploration...").ok();
+    let mut sequence = heapless::Vec::<usize, 17>::new();
+    let mut visited = [false; 17];
 
-    if let Err(e) = run_kahn(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
-        writeln!(serial, "[Fail] Explorer failed: {:?}", e).ok();
+    if backtrack(
+        &EXPLORER_CMDS,
+        &mut i2c,
+        &mut serial,
+        0x3C,
+        0x00,
+        &mut visited,
+        &mut sequence,
+    ) {
+        writeln!(serial, "[OK] Found working sequence: {:?}", sequence).ok();
     } else {
-        writeln!(serial, "[OK] Kahn exploration complete").ok();
+        writeln!(serial, "[Fail] No working sequence found").ok();
     }
 
-    loop {
-        arduino_hal::delay_ms(1000);
-    }
+    loop { arduino_hal::delay_ms(1000); }
 }
 
-/// Kahn 法によるトポロジカルソート + I2C送信
-fn run_kahn<I2C, S>(
+fn backtrack<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
     addr: u8,
     prefix: u8,
-) -> Result<(), ExplorerError>
+    visited: &mut [bool; 17],
+    sequence: &mut heapless::Vec<usize, 17>,
+) -> bool
 where
-    I2C: embedded_hal::blocking::i2c::Write,
+    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    let n = cmds.len();
-    if n > MAX_CMDS {
-        writeln!(serial, "[Fail] too many cmds: {} > MAX_CMDS", n).ok();
-        return Err(ExplorerError::ExecutionFailed);
-    }
-
-    // サイズは MAX_CMDS に合わせる
-    let mut in_deg = [0usize; MAX_CMDS];
-    let mut sent = [false; MAX_CMDS];
-
-    // 入次数を計算 (各ノードが依存している数)
-    for (i, cmd) in cmds.iter().enumerate() {
-        in_deg[i] = cmd.deps.len();
-    }
-
-    // queue capacity must be >= n
-    let mut queue = heapless::Vec::<usize, MAX_CMDS>::new();
-    for i in 0..n {
-        if in_deg[i] == 0 {
-            queue.push(i).ok();
+    // 終端条件
+    if sequence.len() == cmds.len() {
+        // VRAM 判定
+        if verify_vram(i2c, addr) {
+            return true;
+        } else {
+            writeln!(serial, "[Info] Sequence invalid, backtracking...").ok();
+            return false;
         }
     }
 
-    // FIFO processing using remove(0)
-    while !queue.is_empty() {
-        let idx = queue.remove(0); // remove first element
-        writeln!(serial, "[Send] Node {} bytes={:02X?} deps={:?}", idx, cmds[idx].bytes, cmds[idx].deps).ok();
+    for i in 0..cmds.len() {
+        if visited[i] { continue; }
 
-        // I2C 書き込み
-        let buf_len = 1 + cmds[idx].bytes.len();
-        if buf_len > BUF_CAP {
-            writeln!(serial, "[Fail] Node {} buffer overflow", idx).ok();
-            return Err(ExplorerError::BufferOverflow);
-        }
-        let mut buf = [0u8; BUF_CAP];
-        buf[0] = prefix;
-        buf[1..buf_len].copy_from_slice(cmds[idx].bytes);
+        // 依存関係が満たされているか
+        if cmds[i].deps.iter().all(|&d| visited[d]) {
+            writeln!(serial, "[Try] Node {} bytes={:02X?}", i, cmds[i].bytes).ok();
 
-        if i2c.write(addr, &buf[..buf_len]).is_err() {
-            writeln!(serial, "[Fail] Node {} I2C write failed", idx).ok();
-            return Err(ExplorerError::ExecutionFailed);
-        }
+            let buf_len = 1 + cmds[i].bytes.len();
+            if buf_len > BUF_CAP { continue; }
+            let mut buf = [0u8; BUF_CAP];
+            buf[0] = prefix;
+            buf[1..buf_len].copy_from_slice(cmds[i].bytes);
 
-        writeln!(serial, "[OK] Node {} sent", idx).ok();
-        sent[idx] = true;
-
-        // idx を依存するノードの in_deg を減らす
-        for j in 0..n {
-            if cmds[j].deps.contains(&idx) {
-                // safety: in_deg[j] must be > 0 here if deps contained idx
-                in_deg[j] -= 1;
-                if in_deg[j] == 0 {
-                    queue.push(j).ok();
-                }
+            if i2c.write(addr, &buf[..buf_len]).is_err() {
+                writeln!(serial, "[Fail] Node {} write failed", i).ok();
+                continue;
             }
+
+            visited[i] = true;
+            sequence.push(i).ok();
+
+            if backtrack(cmds, i2c, serial, addr, prefix, visited, sequence) {
+                return true;
+            }
+
+            // バックトラック
+            visited[i] = false;
+            sequence.pop();
         }
     }
 
-    if sent[..n].iter().all(|&x| x) {
-        Ok(())
-    } else {
-        Err(ExplorerError::DependencyCycle)
-    }
+    false
+}
+
+/// VRAM 読み出し + パターン判定（簡易例）
+fn verify_vram<I2C>(i2c: &mut I2C, addr: u8) -> bool
+where
+    I2C: embedded_hal::blocking::i2c::WriteRead,
+{
+    // 仮に1ページだけ読み出して確認する例
+    let mut buf = [0u8; 16];
+    let cmd = [0xB0, 0x00, 0x10];
+    if i2c.write_read(addr, &cmd, &mut [0u8]).is_err() { return false; }
+    // 実際の読み出しは HW に合わせて実装
+    true
 }

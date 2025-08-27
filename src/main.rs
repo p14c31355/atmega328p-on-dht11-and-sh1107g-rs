@@ -17,7 +17,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    writeln!(serial, "[SH1107G Full Init Test]").ok();
+    writeln!(serial, "[SH1107G Backtrack Init Test]").ok();
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -38,22 +38,25 @@ fn main() -> ! {
         CmdNode { bytes: &[0xA0], deps: &[5] },
         CmdNode { bytes: &[0xC8], deps: &[6] },
         CmdNode { bytes: &[0xAD, 0x8A], deps: &[7] },
-        CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },
+        CmdNode { bytes: &[0xD9, 0x22], deps: &[] },
         CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },
         CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },
         CmdNode { bytes: &[0xA6], deps: &[11] },
         CmdNode { bytes: &[0xAF], deps: &[12] },
     ];
 
-    writeln!(serial, "[Info] Starting exploration...").ok();
-
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    if let Err(e) = explore_commands(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
-        writeln!(serial, "[Fail] Exploration failed: {:?}", e).ok();
+    let mut sent = [false; EXPLORER_CMDS.len()];
+    let mut sequence = [0usize; EXPLORER_CMDS.len()];
+
+    writeln!(serial, "[Info] Starting backtrack exploration...").ok();
+
+    if explore_recursive(&EXPLORER_CMDS, &mut sent, &mut sequence, 0, &mut i2c, &mut serial, addr, prefix) {
+        writeln!(serial, "[OK] Exploration complete! Order: {:?}", sequence).ok();
     } else {
-        writeln!(serial, "[OK] Exploration complete").ok();
+        writeln!(serial, "[Fail] No valid sequence found").ok();
     }
 
     loop {
@@ -61,63 +64,61 @@ fn main() -> ! {
     }
 }
 
-/// バックトラック探索関数
-fn explore_commands<I2C, S>(
+/// 再帰バックトラック探索
+fn explore_recursive<I2C, S>(
     cmds: &[CmdNode],
+    sent: &mut [bool],
+    sequence: &mut [usize],
+    depth: usize,
     i2c: &mut I2C,
     serial: &mut S,
     addr: u8,
     prefix: u8,
-) -> Result<(), ExplorerError>
+) -> bool
 where
     I2C: embedded_hal::blocking::i2c::Write,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    let mut sent = [false; 14]; // 送信済みフラグ
-    let mut progress = true;
+    if depth == cmds.len() {
+        // 全コマンド送信成功
+        return true;
+    }
 
-    while progress {
-        progress = false;
+    for idx in 0..cmds.len() {
+        if sent[idx] { continue; }
+        if !cmds[idx].deps.iter().all(|&d| sent[d]) { continue; }
 
-        for (idx, cmd) in cmds.iter().enumerate() {
-            if sent[idx] { continue; }
+        writeln!(serial, "[Try] Node {} bytes={:02X?} deps={:?}", idx, cmds[idx].bytes, cmds[idx].deps).ok();
 
-            // 依存関係チェック
-            if !cmd.deps.iter().all(|&d| sent[d]) { continue; }
+        // バッファ作成
+        let buf_len = 1 + cmds[idx].bytes.len();
+        if buf_len > BUF_CAP {
+            writeln!(serial, "[Fail] Node {}: buffer overflow", idx).ok();
+            continue;
+        }
+        let mut buf = [0u8; BUF_CAP];
+        buf[0] = prefix;
+        buf[1..buf_len].copy_from_slice(cmds[idx].bytes);
 
-            writeln!(serial, "[Try] Node {} bytes={:02X?} deps={:?}", idx, cmd.bytes, cmd.deps).ok();
+        // I2C 書き込み
+        if i2c.write(addr, &buf[..buf_len]).is_ok() {
+            writeln!(serial, "[OK] Node {} sent", idx).ok();
+            sent[idx] = true;
+            sequence[depth] = idx;
 
-            // バッファ作成
-            let buf_len = 1 + cmd.bytes.len();
-            if buf_len > BUF_CAP {
-                writeln!(serial, "[Fail] Node {}: buffer overflow", idx).ok();
-                return Err(ExplorerError::BufferOverflow);
+            // 再帰呼び出し
+            if explore_recursive(cmds, sent, sequence, depth + 1, i2c, serial, addr, prefix) {
+                return true;
             }
-            let mut buf = [0u8; BUF_CAP];
-            buf[0] = prefix;
-            buf[1..buf_len].copy_from_slice(cmd.bytes);
 
-            // I2C 書き込み
-            match i2c.write(addr, &buf[..buf_len]) {
-                Ok(_) => {
-                    writeln!(serial, "[OK] Node {} sent", idx).ok();
-                    sent[idx] = true;
-                    progress = true;
-                }
-                Err(e) => {
-                    writeln!(serial, "[Fail] Node {}: {:?}", idx, e).ok();
-                    // 失敗しても探索継続
-                    continue;
-                }
-            }
+            // バックトラック
+            writeln!(serial, "[Backtrack] Node {}", idx).ok();
+            sent[idx] = false;
+        } else {
+            writeln!(serial, "[Fail] Node {} I2C write failed", idx).ok();
         }
     }
 
-    // 全コマンド送信済みか確認
-    if sent.iter().all(|&b| b) {
-        Ok(())
-    } else {
-        Err(ExplorerError::ExecutionFailed)
-    }
+    false
 }

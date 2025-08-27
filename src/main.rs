@@ -8,8 +8,8 @@ use dvcdbg::explorer::{Explorer, CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-// 最大コマンド長 + prefix
-const BUF_CAP: usize = 3;
+// 最大コマンド長 + prefix（動的拡張に対応するために余裕を持たせる）
+const BUF_CAP: usize = 4;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -46,7 +46,6 @@ fn main() -> ! {
         CmdNode { bytes: &[0xAF], deps: &[12] },
     ];
 
-    // ---- Explorer 初期化 ----
     let explorer: Explorer<'static, 14, BUF_CAP> = Explorer {
         sequence: &EXPLORER_CMDS,
     };
@@ -56,7 +55,7 @@ fn main() -> ! {
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    if let Err(e) = run_explorer_with_log(&explorer, &mut i2c, &mut serial, addr, prefix) {
+    if let Err(e) = run_explorer_with_dependency_order(&explorer, &mut i2c, &mut serial, addr, prefix) {
         writeln!(serial, "[Fail] Explorer execution failed: {:?}", e).ok();
     } else {
         writeln!(serial, "[OK] Explorer execution complete").ok();
@@ -67,8 +66,8 @@ fn main() -> ! {
     }
 }
 
-/// Explorer の依存関係順送信 + リアルタイムログ
-fn run_explorer_with_log<I2C, S, const N: usize, const BUF_CAP: usize>(
+/// 依存関係順送信 + リアルタイムログ + バッファ自動調整
+fn run_explorer_with_dependency_order<I2C, S, const N: usize, const BUF_CAP: usize>(
     explorer: &Explorer<'_, N, BUF_CAP>,
     i2c: &mut I2C,
     serial: &mut S,
@@ -80,21 +79,54 @@ where
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    // sequence をそのままイテレート
-    for (idx, node) in explorer.sequence.iter().enumerate() {
-        writeln!(serial, "[Send] Node {} bytes={:02X?} deps={:?}", idx, node.bytes, node.deps).ok();
+    // --- 簡易トップソート（入次数カウント） ---
+    let mut in_degree = [0usize; N];
+    for (i, node) in explorer.sequence.iter().enumerate() {
+    in_degree[i] = node.deps.len(); // 自分の依存数をカウント
+}
+
+    let mut queue = heapless::Vec::<usize, N>::new();
+    for i in 0..N {
+        if in_degree[i] == 0 {
+            queue.push(i).ok();
+        }
+    }
+
+    let mut processed = 0;
+    while let Some(idx) = queue.pop() {
+        let node = &explorer.sequence[idx];
+        processed += 1;
+
+        // --- バッファ準備 ---
+        let max_len = node.bytes.len() + 1;
+        if max_len > BUF_CAP {
+            writeln!(serial, "[Fail] Node {}: buffer too small ({} > BUF_CAP={})", idx, max_len, BUF_CAP).ok();
+            return Err(ExplorerError::BufferOverflow);
+        }
 
         let mut buf = [0u8; BUF_CAP];
         buf[0] = prefix;
-        let len = 1 + node.bytes.len().min(BUF_CAP - 1);
-        buf[1..len].copy_from_slice(&node.bytes[..len - 1]);
+        buf[1..1 + node.bytes.len()].copy_from_slice(node.bytes);
 
-        if let Err(e) = i2c.write(addr, &buf[..len]) {
+        writeln!(serial, "[Send] Node {} bytes={:02X?} deps={:?}", idx, node.bytes, node.deps).ok();
+
+        if let Err(e) = i2c.write(addr, &buf[..1 + node.bytes.len()]) {
             writeln!(serial, "[Fail] Node {}: {:?}", idx, e).ok();
-            continue; // 途中失敗でも残り送信
         } else {
             writeln!(serial, "[OK] Node {} sent", idx).ok();
         }
+
+        // --- 依存関係の減算 ---
+        for (i, n) in explorer.sequence.iter().enumerate() {
+            if n.deps.contains(&idx) {
+                if in_degree[i] > 0 { in_degree[i] -= 1; }
+                if in_degree[i] == 0 { queue.push(i).ok(); }
+            }
+        }
+    }
+
+    if processed != N {
+        return Err(ExplorerError::DependencyCycle);
     }
 
     Ok(())

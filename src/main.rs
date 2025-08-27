@@ -80,15 +80,10 @@ where
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    // トポロジカルソートで依存順のインデックスを取得
-    let sorted_indices = explorer.topo_sort()?; // ExplorerError::DependencyCycle 返し
-
-    for &idx in sorted_indices.iter() {
-        let node = &explorer.sequence[idx];
-
+    // sequence をそのままイテレート
+    for (idx, node) in explorer.sequence.iter().enumerate() {
         writeln!(serial, "[Send] Node {} bytes={:02X?} deps={:?}", idx, node.bytes, node.deps).ok();
 
-        // prefix + コマンドバイト
         let mut buf = [0u8; BUF_CAP];
         buf[0] = prefix;
         let len = 1 + node.bytes.len().min(BUF_CAP - 1);
@@ -96,8 +91,7 @@ where
 
         if let Err(e) = i2c.write(addr, &buf[..len]) {
             writeln!(serial, "[Fail] Node {}: {:?}", idx, e).ok();
-            // 途中失敗でも残りコマンドを続行
-            continue;
+            continue; // 途中失敗でも残り送信
         } else {
             writeln!(serial, "[OK] Node {} sent", idx).ok();
         }

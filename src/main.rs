@@ -29,32 +29,50 @@ fn main() -> ! {
 
     // ---- Explorer 用コマンド定義 ----
     // 0x00 制御バイトを各コマンドの先頭に含めています
-    pub static EXPLORER_CMDS: [CmdNode; 14] = [
-    CmdNode { bytes: &[0xAE], deps: &[] },                  // 0: Display OFF
-    CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },           // 1: Clock / Oscillator
-    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },           // 2: Multiplex Ratio
-    CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },           // 3: Display Offset
-    CmdNode { bytes: &[0x40, 0x00], deps: &[3] },           // 4: Start Line
-    CmdNode { bytes: &[0xA1, 0x00], deps: &[4] },           // 5: Segment Re-map
-    CmdNode { bytes: &[0xA0], deps: &[5] },                 // 6: Segment Re-map (alternate)
-    CmdNode { bytes: &[0xC8], deps: &[6] },                 // 7: COM Output Scan
-    CmdNode { bytes: &[0xAD, 0x8A], deps: &[7] },           // 8: DC-DC Converter
-    CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },           // 9: Pre-charge Period
-    CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },           // 10: VCOMH Deselect
-    CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },          // 11: Charge Pump
-    CmdNode { bytes: &[0xA6], deps: &[11] },                // 12: Normal Display
-    CmdNode { bytes: &[0xAF], deps: &[12] },                // 13: Display ON
+    // 依存関係を静的定義
+const DEP_0: &[usize] = &[];
+const DEP_1: &[usize] = &[0];
+const DEP_2: &[usize] = &[1];
+const DEP_3: &[usize] = &[2];
+const DEP_4: &[usize] = &[3];
+const DEP_5: &[usize] = &[4];
+const DEP_6: &[usize] = &[5];
+const DEP_7: &[usize] = &[6];
+const DEP_8: &[usize] = &[7];
+const DEP_9: &[usize] = &[8];
+const DEP_10: &[usize] = &[9];
+const DEP_11: &[usize] = &[10];
+const DEP_12: &[usize] = &[11];
+const DEP_13: &[usize] = &[12];
+
+// コマンド配列
+let explorer_cmds: [CmdNode; 14] = [
+    CmdNode { bytes: &[0xAE], deps: DEP_0 },       // 0: Display OFF
+    CmdNode { bytes: &[0xD5, 0x51], deps: DEP_1 }, // 1: Clock / Oscillator
+    CmdNode { bytes: &[0xA8, 0x3F], deps: DEP_2 }, // 2: Multiplex Ratio
+    CmdNode { bytes: &[0xD3, 0x60], deps: DEP_3 }, // 3: Display Offset
+    CmdNode { bytes: &[0x40, 0x00], deps: DEP_4 }, // 4: Start Line
+    CmdNode { bytes: &[0xA1, 0x00], deps: DEP_5 }, // 5: Segment Re-map
+    CmdNode { bytes: &[0xA0], deps: DEP_6 },       // 6: Segment Re-map (alt)
+    CmdNode { bytes: &[0xC8], deps: DEP_7 },       // 7: COM Output Scan
+    CmdNode { bytes: &[0xAD, 0x8A], deps: DEP_8 }, // 8: DC-DC Converter
+    CmdNode { bytes: &[0xD9, 0x22], deps: DEP_9 }, // 9: Pre-charge Period
+    CmdNode { bytes: &[0xDB, 0x35], deps: DEP_10 },// 10: VCOMH Deselect
+    CmdNode { bytes: &[0x8D, 0x14], deps: DEP_11 },// 11: Charge Pump
+    CmdNode { bytes: &[0xA6], deps: DEP_12 },      // 12: Normal Display
+    CmdNode { bytes: &[0xAF], deps: DEP_13 },      // 13: Display ON
 ];
 
 
 
+
     let explorer = Explorer::<14> {
-        sequence: &EXPLORER_CMDS,
+        sequence: &explorer_cmds,
     };
 
     // ---- Explore ----
     writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
-    if let Err(e) = run_single_sequence_explorer::<_, _, 14, 128>(
+    if let Err(e) = run_single_sequence_explorer::<_, _, 14, 2048>(
         &explorer,
         &mut i2c,
         &mut serial,

@@ -8,7 +8,7 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 4; // 最大2バイト + prefix + 余裕
+const BUF_CAP: usize = 4; // 最大2バイト + prefix +余裕
 const NODES: usize = 17;
 
 #[arduino_hal::entry]
@@ -28,7 +28,6 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2C initialized").ok();
 
-    // ---- コマンド配列 ----
     static EXPLORER_CMDS: [CmdNode; NODES] = [
         CmdNode { bytes: &[0xAE], deps: &[] },
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
@@ -45,115 +44,94 @@ fn main() -> ! {
         CmdNode { bytes: &[0xB0], deps: &[11] },
         CmdNode { bytes: &[0x00], deps: &[11] },
         CmdNode { bytes: &[0x10], deps: &[11] },
-        CmdNode { bytes: &[0xA6], deps: &[12, 13, 14] },
+        CmdNode { bytes: &[0xA6], deps: &[12,13,14] },
         CmdNode { bytes: &[0xAF], deps: &[15] },
     ];
 
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    writeln!(serial, "[Info] Starting auto VRAM exploration...").ok();
+    writeln!(serial, "[Info] Starting auto VRAM backtrack exploration...").ok();
 
-    if let Err(e) = explore_auto(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
-        writeln!(serial, "[Fail] No valid sequence found: {:?}", e).ok();
+    let mut sent = [false; NODES];
+    let mut order = heapless::Vec::<usize, NODES>::new();
+
+    if backtrack(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix, &mut sent, &mut order) {
+        writeln!(serial, "[OK] Found working sequence! Order: {:?}", order).ok();
+    } else {
+        writeln!(serial, "[Fail] No valid sequence found").ok();
     }
 
     loop { arduino_hal::delay_ms(1000); }
 }
 
-// -------------------------------------------------------------
-// VRAM 判定
-fn check_vram<I2C>(i2c: &mut I2C, addr: u8) -> bool
-where
-    I2C: embedded_hal::blocking::i2c::WriteRead,
-{
-    let mut byte = [0u8];
-    // ページ0, col0 を読む簡易チェック
-    if i2c.write_read(addr, &[0xB0, 0x00, 0x10, 0x40], &mut byte).is_ok() {
-        return byte[0] != 0x00 && byte[0] != 0xFF;
-    }
-    false
-}
-
-// -------------------------------------------------------------
-// バックトラック探索＋VRAM判定
-fn explore_auto<I2C, S>(
-    cmds: &[CmdNode; NODES],
+/// 再帰バックトラック探索
+fn backtrack<I2C, S>(
+    cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
     addr: u8,
     prefix: u8,
-) -> Result<(), ExplorerError>
+    sent: &mut [bool; NODES],
+    order: &mut heapless::Vec<usize, NODES>,
+) -> bool
 where
-    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
+    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    <I2C as embedded_hal::blocking::i2c::WriteRead>::Error: core::fmt::Debug,
+    <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    fn backtrack<I2C, S>(
-        cmds: &[CmdNode; NODES],
-        i2c: &mut I2C,
-        serial: &mut S,
-        prefix: u8,
-        addr: u8,
-        order: &mut heapless::Vec<usize, NODES>,
-        sent: &mut [bool; NODES],
-    ) -> bool
-    where
-        I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
-        <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-        <I2C as embedded_hal::blocking::i2c::WriteRead>::Error: core::fmt::Debug,
-        S: core::fmt::Write,
-    {
-        for i in 0..NODES {
-            if sent[i] { continue; }
-            if !cmds[i].deps.iter().all(|&d| sent[d]) { continue; }
+    if order.len() == NODES {
+        // 完全な順序ができたら VRAM 判定
+        if check_vram(i2c, addr) {
+            return true;
+        }
+        return false;
+    }
 
-            writeln!(serial, "[Try] Node {} bytes={:02X?}", i, cmds[i].bytes).ok();
+    for i in 0..cmds.len() {
+        if sent[i] { continue; }
+        // 依存がすべて満たされているか確認
+        if !cmds[i].deps.iter().all(|&d| sent[d]) { continue; }
 
-            // I2C 書き込み
-            let mut buf = [0u8; BUF_CAP];
-            buf[0] = prefix;
-            let len = cmds[i].bytes.len();
-            buf[1..=len].copy_from_slice(cmds[i].bytes);
-            if i2c.write(addr, &buf[..=len]).is_err() {
-                writeln!(serial, "[Fail] Node {} write failed", i).ok();
-                continue;
-            }
+        writeln!(serial, "[Try] Node {} bytes={:02X?}", i, cmds[i].bytes).ok();
 
-            sent[i] = true;
-            order.push(i).ok();
+        let buf_len = 1 + cmds[i].bytes.len();
+        if buf_len > BUF_CAP { continue; }
 
-            // VRAM 判定
-            // バックトラック探索
-if order.len() == NODES {
-    // 全部送ったあとに VRAM 判定
-    if check_vram(i2c, addr) {
-        return true;
-    } else {
-        // VRAM 不正ならこの順序は失敗
+        let mut buf = [0u8; BUF_CAP];
+        buf[0] = prefix;
+        buf[1..buf_len].copy_from_slice(cmds[i].bytes);
+
+        if i2c.write(addr, &buf[..buf_len]).is_err() {
+            writeln!(serial, "[Fail] Node {} I2C write failed", i).ok();
+            continue;
+        }
+
+        sent[i] = true;
+        order.push(i).ok();
+
+        if backtrack(cmds, i2c, serial, addr, prefix, sent, order) {
+            return true;
+        }
+
+        // バックトラック
         sent[i] = false;
         order.pop();
-        continue;
     }
+    false
 }
 
+/// VRAM が初期化されているか判定する関数
+fn check_vram<I2C>(i2c: &mut I2C, addr: u8) -> bool
+where
+    I2C: embedded_hal::blocking::i2c::Read + embedded_hal::blocking::i2c::Write,
+{
+    let mut buf = [0u8; 1];
+    // 例: アドレス0 の VRAM を読む
+    if i2c.write(addr, &[0x00]).is_err() { return false; } // コラムアドレスセット
+    if i2c.read(addr, &mut buf).is_err() { return false; }
 
-            // バックトラック
-            sent[i] = false;
-            order.pop();
-        }
-        false
-    }
-
-    let mut order: heapless::Vec<usize, NODES> = heapless::Vec::new();
-    let mut sent = [false; NODES];
-
-    if backtrack(cmds, i2c, serial, prefix, addr, &mut order, &mut sent) {
-        writeln!(serial, "[OK] Working sequence found: {:?}", &order[..]).ok();
-        Ok(())
-    } else {
-        writeln!(serial, "[Fail] No working sequence found").ok();
-        Err(ExplorerError::ExecutionFailed)
-    }
+    // 仮判定: 0x00 以外が返れば初期化済み
+    buf[0] != 0x00
 }

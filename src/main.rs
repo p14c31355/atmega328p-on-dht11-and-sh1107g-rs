@@ -27,7 +27,7 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2C initialized").ok();
 
-    // ---- Explorer 用コマンド定義 ----
+    // ---- 依存関係定義 ----
     static DEP_0: &[usize] = &[];
     static DEP_1: &[usize] = &[0];
     static DEP_2: &[usize] = &[1];
@@ -43,6 +43,7 @@ fn main() -> ! {
     static DEP_12: &[usize] = &[11];
     static DEP_13: &[usize] = &[12];
 
+    // ---- コマンド配列 ----
     static EXPLORER_CMDS: [CmdNode; 14] = [
         CmdNode { bytes: &[0xAE], deps: DEP_0 },       // 0: Display OFF
         CmdNode { bytes: &[0xD5, 0x51], deps: DEP_1 }, // 1: Clock / Oscillator
@@ -60,20 +61,36 @@ fn main() -> ! {
         CmdNode { bytes: &[0xAF], deps: DEP_13 },      // 13: Display ON
     ];
 
-    // Explorer の初期化
-    let explorer: Explorer<'static, 14> = Explorer {
+    // ---- Explorer の初期化 ----
+    // const fn で最大コマンド長を取得
+    const fn calculate_max_cmd_len(cmds: &[CmdNode]) -> usize {
+        let mut max_len = 0;
+        let mut i = 0;
+        while i < cmds.len() {
+            let len = cmds[i].bytes.len();
+            if len > max_len {
+                max_len = len;
+            }
+            i += 1;
+        }
+        max_len + 1 // prefix add
+    }
+
+    const BUF_CAP: usize = calculate_max_cmd_len(&EXPLORER_CMDS);
+
+    // Explorer 型に MAX_CMD_LEN を const パラメータとして渡す
+    let explorer: Explorer<'static, 14, BUF_CAP> = Explorer {
         sequence: &EXPLORER_CMDS,
     };
 
-    // 最大コマンド長 + prefix で固定長バッファサイズを計算
-    const BUF_CAP: usize = {
-        let temp_explorer: Explorer<'static, 14> = Explorer { sequence: &EXPLORER_CMDS };
-        temp_explorer.max_cmd_len()
-    };
 
     writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
+    // for (i, node) in EXPLORER_CMDS.iter().enumerate() {
+    //     writeln!(serial, "Node {} bytes={:02X?}, deps={:?}", i, node.bytes, node.deps).ok();
+    // }
 
-    // ---- トポロジカルソートして固定長バッファで送信 ----
+
+    // Explorer 実行
     if let Err(e) = run_single_sequence_explorer::<_, _, 14, BUF_CAP>(
         &explorer,
         &mut i2c,

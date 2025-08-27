@@ -17,7 +17,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    writeln!(serial, "[SH1107G Auto VRAM Kahn Test]").ok();
+    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn Test]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -25,9 +25,8 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100_000,
     );
-    writeln!(serial, "[Info] I2C initialized").ok();
+    let _ = writeln!(serial, "[Info] I2C initialized");
 
-    // 正しい依存関係を整理したノード定義
     static EXPLORER_CMDS: [CmdNode; 17] = [
         CmdNode { bytes: &[0xAE], deps: &[] },         // 0: Display OFF
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },  // 1: Set display clock
@@ -51,11 +50,11 @@ fn main() -> ! {
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    writeln!(serial, "[Info] Starting auto VRAM Kahn exploration...").ok();
+    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn exploration...");
 
     match run_auto_vram_kahn(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
-        Ok(seq) => writeln!(serial, "[OK] Sequence found: {:?}", seq).ok(),
-        Err(e) => writeln!(serial, "[Fail] No valid sequence found: {:?}", e).ok(),
+        Ok(seq) => { let _ = writeln!(serial, "[OK] Sequence found: {:?}", seq); },
+        Err(e) => { let _ = writeln!(serial, "[Fail] No valid sequence found: {:?}", e); },
     }
 
     loop {
@@ -64,6 +63,7 @@ fn main() -> ! {
 }
 
 /// Kahn法でトポロジカルソートしながらI2C送信
+/// 失敗ノードの詳細ログを追加
 fn run_auto_vram_kahn<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
@@ -79,7 +79,7 @@ where
     let n = cmds.len();
     let mut in_degree = [0usize; 32];
     for i in 0..n {
-        for &dep in cmds[i].deps {
+        for &_dep in cmds[i].deps {
             in_degree[i] += 1;
         }
     }
@@ -96,10 +96,14 @@ where
     while let Some(&node) = queue.first() {
         queue.remove(0);
         let cmd = &cmds[node];
-        writeln!(serial, "[Try] Node {} bytes={:02X?}", node, cmd.bytes).ok();
+        let _ = writeln!(serial, "[Try] Node {} bytes={:02X?}", node, cmd.bytes);
 
         if cmd.bytes.len() + 1 > BUF_CAP {
-            writeln!(serial, "[Fail] Node {} buffer overflow", node).ok();
+            let _ = writeln!(
+                serial,
+                "[Fail] Node {} buffer overflow bytes={:02X?}",
+                node, cmd.bytes
+            );
             return Err(ExplorerError::ExecutionFailed);
         }
 
@@ -107,13 +111,16 @@ where
         buf[0] = prefix;
         buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
         if i2c.write(addr, &buf[..1 + cmd.bytes.len()]).is_err() {
-            writeln!(serial, "[Fail] Node {} I2C write failed", node).ok();
+            let _ = writeln!(
+                serial,
+                "[Fail] Node {} I2C write failed bytes={:02X?}",
+                node, cmd.bytes
+            );
             return Err(ExplorerError::ExecutionFailed);
         }
 
         sequence.push(node).ok();
 
-        // 依存ノードの in-degree を減らし、0 になったらキューに追加
         for i in 0..n {
             if cmds[i].deps.contains(&node) {
                 in_degree[i] -= 1;
@@ -127,6 +134,7 @@ where
     if sequence.len() == n {
         Ok(sequence)
     } else {
+        let _ = writeln!(serial, "[Fail] Sequence incomplete, visited nodes: {:?}", sequence);
         Err(ExplorerError::ExecutionFailed)
     }
 }

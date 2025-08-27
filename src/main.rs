@@ -8,7 +8,8 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 2; // prefix + 1バイト送信用
+const BUF_CAP: usize = 8; // prefix + 最大コマンド長
+const VRAM_CHECK_LEN: usize = 16; // VRAM確認用読み出しバイト数
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -53,8 +54,10 @@ fn main() -> ! {
 
     writeln!(serial, "[Info] Starting auto VRAM backtrack exploration...").ok();
 
-    if let Err(e) = run_backtrack(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix, 0, &mut [false;17]) {
+    if let Err(e) = run_auto_vram_backtrack(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
         writeln!(serial, "[Fail] No valid sequence found: {:?}", e).ok();
+    } else {
+        writeln!(serial, "[OK] Working sequence found!").ok();
     }
 
     loop {
@@ -62,48 +65,91 @@ fn main() -> ! {
     }
 }
 
-/// バッファを小さくして分割送信するバックトラック探索
-fn run_backtrack<I2C, S>(
+/// バックトラック探索 + VRAM判定付き
+fn run_auto_vram_backtrack<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
     addr: u8,
     prefix: u8,
-    idx: usize,
-    sent: &mut [bool; 17],
 ) -> Result<(), ExplorerError>
 where
-    I2C: embedded_hal::blocking::i2c::Write,
+    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
+    <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    if idx >= cmds.len() {
-        // 全ノード送信完了
-        writeln!(serial, "[OK] Found working sequence! Order: {:?}", sent.iter().enumerate().filter(|(_, &b)| b).map(|(i, _)| i).collect::<heapless::Vec<usize,17>>()).ok();
-        return Ok(());
+    let mut sequence = [0usize; 17];
+
+    fn backtrack<I2C, S>(
+        cmds: &[CmdNode],
+        i2c: &mut I2C,
+        serial: &mut S,
+        addr: u8,
+        prefix: u8,
+        sequence: &mut [usize],
+        depth: usize,
+    ) -> bool
+    where
+        I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
+        <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
+        <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
+        S: core::fmt::Write,
+    {
+        if depth == cmds.len() {
+            // VRAM読んで確認
+            let mut buf = [0u8; VRAM_CHECK_LEN];
+            if i2c.read(addr, &mut buf).is_ok() {
+                // 少なくとも0x00/0xFFのみでなければOKとする簡易判定
+                if buf.iter().any(|&b| b != 0x00 && b != 0xFF) {
+                    return true;
+                } else {
+                    writeln!(serial, "[Info] VRAM empty/invalid, backtracking...").ok();
+                    return false;
+                }
+            } else {
+                writeln!(serial, "[Fail] VRAM read failed").ok();
+                return false;
+            }
+        }
+
+        for idx in 0..cmds.len() {
+            // 依存チェック
+            if cmds[idx].deps.iter().all(|&dep| sequence[..depth].contains(&dep)) &&
+               !sequence[..depth].contains(&idx)
+            {
+                writeln!(serial, "[Try] Node {} bytes={:02X?}", idx, cmds[idx].bytes).ok();
+                arduino_hal::delay_ms(1);
+
+                let buf_len = 1 + cmds[idx].bytes.len();
+                if buf_len > BUF_CAP {
+                    writeln!(serial, "[Fail] Node {} buffer overflow", idx).ok();
+                    continue;
+                }
+                let mut buf = [0u8; BUF_CAP];
+                buf[0] = prefix;
+                buf[1..buf_len].copy_from_slice(cmds[idx].bytes);
+
+                if i2c.write(addr, &buf[..buf_len]).is_err() {
+                    writeln!(serial, "[Fail] Node {} I2C write failed", idx).ok();
+                    continue;
+                }
+
+                sequence[depth] = idx;
+                if backtrack(cmds, i2c, serial, addr, prefix, sequence, depth + 1) {
+                    writeln!(serial, "[OK] Node {} accepted", idx).ok();
+                    return true;
+                } else {
+                    writeln!(serial, "[Info] Sequence invalid, backtracking...").ok();
+                }
+            }
+        }
+        false
     }
 
-    // 依存が未送信のノードはスキップ
-    if cmds[idx].deps.iter().any(|&d| !sent[d]) {
-        return run_backtrack(cmds, i2c, serial, addr, prefix, idx + 1, sent);
+    if backtrack(cmds, i2c, serial, addr, prefix, &mut sequence, 0) {
+        Ok(())
+    } else {
+        Err(ExplorerError::ExecutionFailed)
     }
-
-    writeln!(serial, "[Try] Node {} bytes={:02X?}", idx, cmds[idx].bytes).ok();
-
-    // 分割送信
-    for &byte in cmds[idx].bytes.iter() {
-        let buf = [prefix, byte];
-        i2c.write(addr, &buf).map_err(|_| ExplorerError::ExecutionFailed)?;
-    }
-
-    sent[idx] = true;
-
-    let res = run_backtrack(cmds, i2c, serial, addr, prefix, idx + 1, sent);
-
-    if res.is_err() {
-        // バックトラック
-        sent[idx] = false;
-    }
-
-    res
 }

@@ -101,28 +101,29 @@ fn main() -> ! {
         }, // 13: Display ON
     ];
     // Explorer の初期化
-    let explorer: Explorer<'static, 14> = Explorer {
-        sequence: &EXPLORER_CMDS,
-    };
-    const BUF_CAP: usize = {
-        let temp_explorer: Explorer<'static, 14> = Explorer { sequence: &EXPLORER_CMDS };
-        temp_explorer.max_cmd_len()
-    };
+    // Explorer の初期化
+let explorer: Explorer<'static, 14> = Explorer {
+    sequence: &EXPLORER_CMDS,
+};
 
-    writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
+// 最大コマンド長 + prefix で十分
+const BUF_CAP: usize = 4;
 
-    if let Err(e) = run_single_sequence_explorer::<_, _, 14, BUF_CAP>(
-        &explorer,
-        &mut i2c,
-        &mut serial,
-        0x3C, // SH1107 I2C address
-        0x00, // prefix
-        LogLevel::Verbose,
-    ) {
-        writeln!(serial, "[error] Explorer failed: {:?}", e).ok();
-    } else {
-        writeln!(serial, "[Info] SH1107G full init test complete").ok();
-    }
+writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
+
+if let Err(e) = run_single_sequence_explorer::<_, _, 14, BUF_CAP>(
+    &explorer,
+    &mut i2c,
+    &mut serial,
+    0x3C, // SH1107 I2C address
+    0x00, // prefix
+    LogLevel::Verbose,
+) {
+    writeln!(serial, "[error] Explorer failed: {:?}", e).ok();
+} else {
+    writeln!(serial, "[Info] SH1107G full init test complete").ok();
+}
+
 
     loop {
         arduino_hal::delay_ms(1000);

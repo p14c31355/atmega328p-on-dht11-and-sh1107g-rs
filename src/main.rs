@@ -48,18 +48,15 @@ fn main() -> ! {
     let explorer = Explorer::<13> { sequence: &EXPLORER_CMDS };
 
     // ---- Run exploration on all commands ----
-    if let Err(e) = run_explorer::<_, _, 13, 128>(
-        &explorer,
-        &mut i2c,
-        &mut serial,
-        &[],       // No specific test bytes; just send all commands
-        0x3C,      // I2C address prefix (0x00 for command mode)
-        LogLevel::Verbose,
-    ) {
-        writeln!(serial, "[error] Full init failed: {:?}", e).ok();
-    } else {
-        writeln!(serial, "[OK] Full SH1107G init completed").ok();
-    }
+    // Instead of run_explorer with &[], iterate manually:
+for cmd_node in EXPLORER_CMDS.iter() {
+    let result = i2c.write(0x3C, cmd_node.bytes);
+    match result {
+        Ok(_) => writeln!(serial, "[OK] Command sent: {:X?}", cmd_node.bytes).ok(),
+        Err(_) => writeln!(serial, "[ERROR] Command failed: {:X?}", cmd_node.bytes).ok(),
+    };
+}
+
 
     loop {
         arduino_hal::delay_ms(1000);

@@ -8,7 +8,8 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 4; // 最大2バイト + prefix +余裕
+const BUF_CAP: usize = 4; // 最大2バイト + prefix + 余裕
+const NODES: usize = 17;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -17,7 +18,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    writeln!(serial, "[SH1107G Auto VRAM Test]").ok();
+    writeln!(serial, "[SH1107G Auto VRAM Backtrack Test]").ok();
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -28,7 +29,7 @@ fn main() -> ! {
     writeln!(serial, "[Info] I2C initialized").ok();
 
     // ---- コマンド配列 ----
-    static EXPLORER_CMDS: [CmdNode; 17] = [
+    static EXPLORER_CMDS: [CmdNode; NODES] = [
         CmdNode { bytes: &[0xAE], deps: &[] },
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
         CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },
@@ -41,9 +42,9 @@ fn main() -> ! {
         CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },
         CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },
         CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },
-        CmdNode { bytes: &[0xB0], deps: &[11] },  // Page=0
-        CmdNode { bytes: &[0x00], deps: &[11] },  // Col low
-        CmdNode { bytes: &[0x10], deps: &[11] },  // Col high
+        CmdNode { bytes: &[0xB0], deps: &[11] },
+        CmdNode { bytes: &[0x00], deps: &[11] },
+        CmdNode { bytes: &[0x10], deps: &[11] },
         CmdNode { bytes: &[0xA6], deps: &[12, 13, 14] },
         CmdNode { bytes: &[0xAF], deps: &[15] },
     ];
@@ -53,107 +54,106 @@ fn main() -> ! {
 
     writeln!(serial, "[Info] Starting auto VRAM exploration...").ok();
 
-    if let Err(e) = run_auto_backtrack(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
+    if let Err(e) = explore_auto(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
         writeln!(serial, "[Fail] No valid sequence found: {:?}", e).ok();
-    } else {
-        writeln!(serial, "[OK] Valid sequence found!").ok();
     }
 
     loop { arduino_hal::delay_ms(1000); }
 }
 
-/// VRAM 書き込み→読み出しで判定
-fn verify_vram<I2C>(i2c: &mut I2C, addr: u8) -> bool
+// -------------------------------------------------------------
+// VRAM 判定
+fn check_vram<I2C>(i2c: &mut I2C, addr: u8) -> bool
 where
-    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
-    <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
+    I2C: embedded_hal::blocking::i2c::WriteRead,
 {
-    let test_pattern: [u8; 1] = [0xAA];
-
-    // ページ0, カラム0 に書き込み（簡易例）
-    if i2c.write(addr, &test_pattern).is_err() {
-        return false;
+    let mut byte = [0u8];
+    // ページ0, col0 を読む簡易チェック
+    if i2c.write_read(addr, &[0xB0, 0x00, 0x10, 0x40], &mut byte).is_ok() {
+        return byte[0] != 0x00 && byte[0] != 0xFF;
     }
-
-    let mut buf: [u8; 1] = [0];
-    if i2c.read(addr, &mut buf).is_err() {
-        return false;
-    }
-
-    buf[0] == test_pattern[0]
+    false
 }
 
-/// バックトラック探索 + VRAM 判定
-fn run_auto_backtrack<I2C, S>(
-    cmds: &[CmdNode],
+// -------------------------------------------------------------
+// バックトラック探索＋VRAM判定
+fn explore_auto<I2C, S>(
+    cmds: &[CmdNode; NODES],
     i2c: &mut I2C,
     serial: &mut S,
     addr: u8,
     prefix: u8,
 ) -> Result<(), ExplorerError>
 where
-    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
+    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
+    <I2C as embedded_hal::blocking::i2c::WriteRead>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    let mut sequence = heapless::Vec::<usize, 17>::new();
-    try_sequence(cmds, i2c, serial, addr, prefix, &mut sequence, 0)?;
-    Ok(())
+    fn backtrack<I2C, S>(
+        cmds: &[CmdNode; NODES],
+        i2c: &mut I2C,
+        serial: &mut S,
+        prefix: u8,
+        addr: u8,
+        order: &mut heapless::Vec<usize, NODES>,
+        sent: &mut [bool; NODES],
+    ) -> bool
+    where
+        I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
+        <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
+        <I2C as embedded_hal::blocking::i2c::WriteRead>::Error: core::fmt::Debug,
+        S: core::fmt::Write,
+    {
+        for i in 0..NODES {
+            if sent[i] { continue; }
+            if !cmds[i].deps.iter().all(|&d| sent[d]) { continue; }
+
+            writeln!(serial, "[Try] Node {} bytes={:02X?}", i, cmds[i].bytes).ok();
+
+            // I2C 書き込み
+            let mut buf = [0u8; BUF_CAP];
+            buf[0] = prefix;
+            let len = cmds[i].bytes.len();
+            buf[1..=len].copy_from_slice(cmds[i].bytes);
+            if i2c.write(addr, &buf[..=len]).is_err() {
+                writeln!(serial, "[Fail] Node {} write failed", i).ok();
+                continue;
+            }
+
+            sent[i] = true;
+            order.push(i).ok();
+
+            // VRAM 判定
+            // バックトラック探索
+if order.len() == NODES {
+    // 全部送ったあとに VRAM 判定
+    if check_vram(i2c, addr) {
+        return true;
+    } else {
+        // VRAM 不正ならこの順序は失敗
+        sent[i] = false;
+        order.pop();
+        continue;
+    }
 }
 
-fn try_sequence<I2C, S>(
-    cmds: &[CmdNode],
-    i2c: &mut I2C,
-    serial: &mut S,
-    addr: u8,
-    prefix: u8,
-    sequence: &mut heapless::Vec<usize, 17>,
-    idx: usize,
-) -> Result<(), ExplorerError>
-where
-    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
-    <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
-    S: core::fmt::Write,
-{
-    if idx >= cmds.len() {
-        // 最終判定
-        if verify_vram(i2c, addr) {
-            writeln!(serial, "[Info] Sequence valid: {:?}", sequence).ok();
-            return Ok(());
-        } else {
-            return Err(ExplorerError::ExecutionFailed);
-        }
-    }
 
-    // 依存条件を確認
-    for &dep in cmds[idx].deps {
-        if !sequence.contains(&dep) {
-            return Err(ExplorerError::DependencyCycle);
-        }
-    }
-
-    writeln!(serial, "[Try] Node {} bytes={:02X?}", idx, cmds[idx].bytes).ok();
-
-    // I2C 書き込み
-    let buf_len = 1 + cmds[idx].bytes.len();
-    if buf_len > BUF_CAP { return Err(ExplorerError::BufferOverflow); }
-    let mut buf = [0u8; BUF_CAP];
-    buf[0] = prefix;
-    buf[1..buf_len].copy_from_slice(cmds[idx].bytes);
-
-    i2c.write(addr, &buf[..buf_len]).map_err(|_| ExplorerError::ExecutionFailed)?;
-    sequence.push(idx).map_err(|_| ExplorerError::BufferOverflow)?;
-
-    // 再帰で次のノードへ
-    match try_sequence(cmds, i2c, serial, addr, prefix, sequence, idx + 1) {
-        Ok(_) => Ok(()),
-        Err(_) => {
             // バックトラック
-            sequence.pop();
-            Err(ExplorerError::ExecutionFailed)
+            sent[i] = false;
+            order.pop();
         }
+        false
+    }
+
+    let mut order: heapless::Vec<usize, NODES> = heapless::Vec::new();
+    let mut sent = [false; NODES];
+
+    if backtrack(cmds, i2c, serial, prefix, addr, &mut order, &mut sent) {
+        writeln!(serial, "[OK] Working sequence found: {:?}", &order[..]).ok();
+        Ok(())
+    } else {
+        writeln!(serial, "[Fail] No working sequence found").ok();
+        Err(ExplorerError::ExecutionFailed)
     }
 }

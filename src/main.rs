@@ -28,69 +28,41 @@ fn main() -> ! {
     writeln!(serial, "[Info] I2C initialized").ok();
 
     // ---- 依存関係定義 ----
-    static DEP_0: &[usize] = &[];
-    static DEP_1: &[usize] = &[0];
-    static DEP_2: &[usize] = &[1];
-    static DEP_3: &[usize] = &[2];
-    static DEP_4: &[usize] = &[3];
-    static DEP_5: &[usize] = &[4];
-    static DEP_6: &[usize] = &[5];
-    static DEP_7: &[usize] = &[6];
-    static DEP_8: &[usize] = &[7];
-    static DEP_9: &[usize] = &[8];
-    static DEP_10: &[usize] = &[9];
-    static DEP_11: &[usize] = &[10];
-    static DEP_12: &[usize] = &[11];
-    static DEP_13: &[usize] = &[12];
-
-    // ---- コマンド配列 ----
     static EXPLORER_CMDS: [CmdNode; 14] = [
-        CmdNode { bytes: &[0xAE], deps: DEP_0 },       // 0: Display OFF
-        CmdNode { bytes: &[0xD5, 0x51], deps: DEP_1 }, // 1: Clock / Oscillator
-        CmdNode { bytes: &[0xA8, 0x3F], deps: DEP_2 }, // 2: Multiplex Ratio
-        CmdNode { bytes: &[0xD3, 0x60], deps: DEP_3 }, // 3: Display Offset
-        CmdNode { bytes: &[0x40, 0x00], deps: DEP_4 }, // 4: Start Line
-        CmdNode { bytes: &[0xA1, 0x00], deps: DEP_5 }, // 5: Segment Re-map
-        CmdNode { bytes: &[0xA0], deps: DEP_6 },       // 6: Segment Re-map (alt)
-        CmdNode { bytes: &[0xC8], deps: DEP_7 },       // 7: COM Output Scan
-        CmdNode { bytes: &[0xAD, 0x8A], deps: DEP_8 }, // 8: DC-DC Converter
-        CmdNode { bytes: &[0xD9, 0x22], deps: DEP_9 }, // 9: Pre-charge Period
-        CmdNode { bytes: &[0xDB, 0x35], deps: DEP_10 },// 10: VCOMH Deselect
-        CmdNode { bytes: &[0x8D, 0x14], deps: DEP_11 },// 11: Charge Pump
-        CmdNode { bytes: &[0xA6], deps: DEP_12 },      // 12: Normal Display
-        CmdNode { bytes: &[0xAF], deps: DEP_13 },      // 13: Display ON
-    ];
+    CmdNode { bytes: &[0xAE], deps: &[] },       // 0: Display OFF
+    CmdNode { bytes: &[0xD5, 0x51], deps: &[0] }, // 1: Clock / Oscillator
+    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] }, // 2: Multiplex Ratio
+    CmdNode { bytes: &[0xD3, 0x60], deps: &[2] }, // 3: Display Offset
+    CmdNode { bytes: &[0x40, 0x00], deps: &[3] }, // 4: Start Line
+    CmdNode { bytes: &[0xA1, 0x00], deps: &[4] }, // 5: Segment Re-map
+    CmdNode { bytes: &[0xA0], deps: &[5] },       // 6: Segment Re-map (alt)
+    CmdNode { bytes: &[0xC8], deps: &[6] },       // 7: COM Output Scan
+    CmdNode { bytes: &[0xAD, 0x8A], deps: &[7] }, // 8: DC-DC Converter
+    CmdNode { bytes: &[0xD9, 0x22], deps: &[8] }, // 9: Pre-charge Period
+    CmdNode { bytes: &[0xDB, 0x35], deps: &[9] }, // 10: VCOMH Deselect
+    CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },// 11: Charge Pump
+    CmdNode { bytes: &[0xA6], deps: &[11] },      // 12: Normal Display
+    CmdNode { bytes: &[0xAF], deps: &[12] },      // 13: Display ON
+];
 
-    // ---- Explorer の初期化 ----
-    // const fn で最大コマンド長を取得
-    const fn calculate_max_cmd_len(cmds: &[CmdNode]) -> usize {
-        let mut max_len = 0;
-        let mut i = 0;
-        while i < cmds.len() {
-            let len = cmds[i].bytes.len();
-            if len > max_len {
-                max_len = len;
-            }
-            i += 1;
-        }
-        max_len + 1 // prefix add
+
+    const BUF_CAP: usize = 3; // 最大2バイト + prefix
+
+let explorer: Explorer<'static, 14, BUF_CAP> = Explorer {
+    sequence: &EXPLORER_CMDS,
+};
+
+
+    // ---- デバッグ表示 ----
+    for (i, node) in EXPLORER_CMDS.iter().enumerate() {
+        writeln!(serial, "Node {} bytes={:02X?}, deps={:?}", i, node.bytes, node.deps).ok();
     }
 
-    const BUF_CAP: usize = calculate_max_cmd_len(&EXPLORER_CMDS);
-
-    // Explorer 型に MAX_CMD_LEN を const パラメータとして渡す
-    let explorer: Explorer<'static, 14, BUF_CAP> = Explorer {
-        sequence: &EXPLORER_CMDS,
-    };
-
+    // ---- バッファ容量（最大コマンド長 + prefix） ----
+    // const BUF_CAP: usize = 3; // 最大2バイト + prefix
 
     writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
-    // for (i, node) in EXPLORER_CMDS.iter().enumerate() {
-    //     writeln!(serial, "Node {} bytes={:02X?}, deps={:?}", i, node.bytes, node.deps).ok();
-    // }
 
-
-    // Explorer 実行
     if let Err(e) = run_single_sequence_explorer::<_, _, 14, BUF_CAP>(
         &explorer,
         &mut i2c,

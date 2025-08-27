@@ -8,8 +8,10 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 8; // prefix + 最大コマンド長
+const BUF_CAP: usize = 32; // prefix + 最大コマンド長
 const VRAM_CHECK_LEN: usize = 16; // VRAM確認用読み出しバイト数
+const VRAM_SAMPLE_ROWS: usize = 4;  // サンプリング行数
+const VRAM_ROW_OFFSET: usize = 16;  // 各行読み出しオフセット
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -28,7 +30,6 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2C initialized").ok();
 
-    // ---- コマンド配列 ----
     static EXPLORER_CMDS: [CmdNode; 17] = [
         CmdNode { bytes: &[0xAE], deps: &[] },
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
@@ -65,7 +66,6 @@ fn main() -> ! {
     }
 }
 
-/// バックトラック探索 + VRAM判定付き
 fn run_auto_vram_backtrack<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
@@ -97,24 +97,24 @@ where
         S: core::fmt::Write,
     {
         if depth == cmds.len() {
-            // VRAM読んで確認
-            let mut buf = [0u8; VRAM_CHECK_LEN];
-            if i2c.read(addr, &mut buf).is_ok() {
-                // 少なくとも0x00/0xFFのみでなければOKとする簡易判定
-                if buf.iter().any(|&b| b != 0x00 && b != 0xFF) {
-                    return true;
-                } else {
-                    writeln!(serial, "[Info] VRAM empty/invalid, backtracking...").ok();
+            // VRAM サンプル行判定
+            for row in 0..VRAM_SAMPLE_ROWS {
+                let offset = row * VRAM_ROW_OFFSET;
+                let mut buf = [0u8; VRAM_CHECK_LEN];
+                if i2c.read(addr, &mut buf).is_err() {
+                    writeln!(serial, "[Fail] VRAM read failed").ok();
                     return false;
                 }
-            } else {
-                writeln!(serial, "[Fail] VRAM read failed").ok();
-                return false;
+                // 全バイト0x00または0xFFなら無効
+                if buf.iter().all(|&b| b == 0x00) || buf.iter().all(|&b| b == 0xFF) {
+                    writeln!(serial, "[Info] Row {} invalid (0x00/0xFF), backtracking...", row).ok();
+                    return false;
+                }
             }
+            return true;
         }
 
         for idx in 0..cmds.len() {
-            // 依存チェック
             if cmds[idx].deps.iter().all(|&dep| sequence[..depth].contains(&dep)) &&
                !sequence[..depth].contains(&idx)
             {

@@ -8,10 +8,11 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 32; // prefix + 最大コマンド長
-const VRAM_CHECK_LEN: usize = 16; // VRAM確認用読み出しバイト数
-const VRAM_SAMPLE_ROWS: usize = 4;  // サンプリング行数
-const VRAM_ROW_OFFSET: usize = 16;  // 各行読み出しオフセット
+const BUF_CAP: usize = 8; 
+const VRAM_CHECK_LEN: usize = 16; 
+const VRAM_SAMPLE_ROWS: usize = 4;  
+const VRAM_ROW_OFFSET: usize = 16;  
+const VRAM_MIN_BITS_SET: usize = 4; // 最低限1行にセットされているビット数
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -20,7 +21,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    writeln!(serial, "[SH1107G Auto VRAM Backtrack Test]").ok();
+    writeln!(serial, "[SH1107G Auto VRAM BitCheck Backtrack Test]").ok();
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -53,9 +54,9 @@ fn main() -> ! {
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    writeln!(serial, "[Info] Starting auto VRAM backtrack exploration...").ok();
+    writeln!(serial, "[Info] Starting auto VRAM bit-check backtrack exploration...").ok();
 
-    if let Err(e) = run_auto_vram_backtrack(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
+    if let Err(e) = run_auto_vram_bitcheck_backtrack(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
         writeln!(serial, "[Fail] No valid sequence found: {:?}", e).ok();
     } else {
         writeln!(serial, "[OK] Working sequence found!").ok();
@@ -66,7 +67,7 @@ fn main() -> ! {
     }
 }
 
-fn run_auto_vram_backtrack<I2C, S>(
+fn run_auto_vram_bitcheck_backtrack<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
@@ -97,17 +98,18 @@ where
         S: core::fmt::Write,
     {
         if depth == cmds.len() {
-            // VRAM サンプル行判定
+            // VRAM サンプル判定
             for row in 0..VRAM_SAMPLE_ROWS {
-                let offset = row * VRAM_ROW_OFFSET;
                 let mut buf = [0u8; VRAM_CHECK_LEN];
                 if i2c.read(addr, &mut buf).is_err() {
                     writeln!(serial, "[Fail] VRAM read failed").ok();
                     return false;
                 }
-                // 全バイト0x00または0xFFなら無効
-                if buf.iter().all(|&b| b == 0x00) || buf.iter().all(|&b| b == 0xFF) {
-                    writeln!(serial, "[Info] Row {} invalid (0x00/0xFF), backtracking...", row).ok();
+
+                // ビットカウント
+                let bits_set: usize = buf.iter().map(|b| b.count_ones() as usize).sum();
+                if bits_set < VRAM_MIN_BITS_SET {
+                    writeln!(serial, "[Info] Row {} too few bits set ({}), backtracking...", row, bits_set).ok();
                     return false;
                 }
             }

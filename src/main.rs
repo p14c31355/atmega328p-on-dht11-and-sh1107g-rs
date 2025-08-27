@@ -29,21 +29,21 @@ fn main() -> ! {
 
     // ---- Explorer 用コマンド定義 ----
     // 0x00 制御バイトを各コマンドの先頭に含めています
-    const EXPLORER_CMDS: [CmdNode; 14] = [
-    CmdNode { bytes: &[0xAE], deps: &[] },                     // 0
-    CmdNode { bytes: &[0xD5, 0x51], deps: &[0_usize] },    // 1
-    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1_usize] },    // 2
-    CmdNode { bytes: &[0xD3, 0x60], deps: &[2_usize] },    // 3
-    CmdNode { bytes: &[0x40, 0x00], deps: &[3_usize] },    // 4
-    CmdNode { bytes: &[0xA1, 0x00], deps: &[4_usize] },    // 5
-    CmdNode { bytes: &[0xA0], deps: &[5_usize] },          // 6
-    CmdNode { bytes: &[0xC8], deps: &[6_usize] },          // 7
-    CmdNode { bytes: &[0xAD, 0x8A], deps: &[7_usize] },    // 8
-    CmdNode { bytes: &[0xD9, 0x22], deps: &[8_usize] },    // 9
-    CmdNode { bytes: &[0xDB, 0x35], deps: &[9_usize] },    // 10
-    CmdNode { bytes: &[0x8D, 0x14], deps: &[10_usize] },   // 11
-    CmdNode { bytes: &[0xA6], deps: &[11_usize] },         // 12
-    CmdNode { bytes: &[0xAF], deps: &[12_usize] },         // 13
+    pub static EXPLORER_CMDS: [CmdNode; 14] = [
+    CmdNode { bytes: &[0xAE], deps: &[] },                  // 0: Display OFF
+    CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },           // 1: Clock / Oscillator
+    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },           // 2: Multiplex Ratio
+    CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },           // 3: Display Offset
+    CmdNode { bytes: &[0x40, 0x00], deps: &[3] },           // 4: Start Line
+    CmdNode { bytes: &[0xA1, 0x00], deps: &[4] },           // 5: Segment Re-map
+    CmdNode { bytes: &[0xA0], deps: &[5] },                 // 6: Segment Re-map (alternate)
+    CmdNode { bytes: &[0xC8], deps: &[6] },                 // 7: COM Output Scan
+    CmdNode { bytes: &[0xAD, 0x8A], deps: &[7] },           // 8: DC-DC Converter
+    CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },           // 9: Pre-charge Period
+    CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },           // 10: VCOMH Deselect
+    CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },          // 11: Charge Pump
+    CmdNode { bytes: &[0xA6], deps: &[11] },                // 12: Normal Display
+    CmdNode { bytes: &[0xAF], deps: &[12] },                // 13: Display ON
 ];
 
 

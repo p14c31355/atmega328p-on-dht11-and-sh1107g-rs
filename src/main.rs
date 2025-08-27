@@ -47,26 +47,42 @@ fn main() -> ! {
         sequence: &EXPLORER_CMDS,
     };
 
-    for (i, node) in EXPLORER_CMDS.iter().enumerate() {
-        writeln!(serial, "Node {} bytes={:02X?}, deps={:?}", i, node.bytes, node.deps).ok();
-    }
-
     writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
 
-    if let Err(e) = run_single_sequence_explorer::<_, _, 14, BUF_CAP>(
-        &explorer,
-        &mut i2c,
-        &mut serial,
-        0x3C,
-        0x00,
-        LogLevel::Verbose,
-    ) {
-        writeln!(serial, "[error] Explorer failed: {:?}", e).ok();
-    } else {
-        writeln!(serial, "[Info] SH1107G full init test complete").ok();
+    for (i, node) in EXPLORER_CMDS.iter().enumerate() {
+        writeln!(
+            serial,
+            "[Send] Node {} bytes={:02X?} deps={:?}",
+            i, node.bytes, node.deps
+        )
+        .ok();
+
+        if let Err(e) = i2c_write_with_prefix(&mut i2c, 0x3C, 0x00, node.bytes) {
+            writeln!(serial, "[Fail] Node {}: {:?}", i, e).ok();
+        } else {
+            writeln!(serial, "[OK] Node {} sent", i).ok();
+        }
     }
+
+    writeln!(serial, "[Info] SH1107G full init test complete").ok();
 
     loop {
         arduino_hal::delay_ms(1000);
     }
+}
+
+/// prefix付きI2C書き込み
+fn i2c_write_with_prefix<I2C>(
+    i2c: &mut I2C,
+    addr: u8,
+    prefix: u8,
+    data: &[u8],
+) -> Result<(), I2C::Error>
+where
+    I2C: embedded_hal::blocking::i2c::Write,
+{
+    let mut buf = [0u8; BUF_CAP];
+    buf[0] = prefix;
+    buf[1..=data.len()].copy_from_slice(data);
+    i2c.write(addr, &buf[..=data.len()])
 }

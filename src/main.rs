@@ -8,7 +8,7 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 8; // 分割送信に対応した余裕サイズ
+const BUF_CAP: usize = 8;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -17,7 +17,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn Test]");
+    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn+Read+Backtrack Test]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -50,9 +50,9 @@ fn main() -> ! {
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn exploration...");
+    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn+Read+Backtrack exploration...");
 
-    match run_auto_vram_kahn(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
+    match run_auto_vram_backtrack_kahn(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
         Ok(seq) => { let _ = writeln!(serial, "[OK] Sequence found: {:?}", seq); },
         Err(e) => { let _ = writeln!(serial, "[Fail] No valid sequence found: {:?}", e); },
     }
@@ -62,9 +62,7 @@ fn main() -> ! {
     }
 }
 
-/// Kahn法でトポロジカルソートしながらI2C送信
-/// 失敗ノードの詳細ログを追加
-fn run_auto_vram_kahn<I2C, S>(
+fn run_auto_vram_backtrack_kahn<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
@@ -72,69 +70,100 @@ fn run_auto_vram_kahn<I2C, S>(
     prefix: u8,
 ) -> Result<heapless::Vec<usize, 32>, ExplorerError>
 where
-    I2C: embedded_hal::blocking::i2c::Write,
+    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
+    <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
     let n = cmds.len();
     let mut in_degree = [0usize; 32];
     for i in 0..n {
-        for &_dep in cmds[i].deps {
-            in_degree[i] += 1;
-        }
-    }
-
-    let mut queue = heapless::Vec::<usize, 32>::new();
-    for i in 0..n {
-        if in_degree[i] == 0 {
-            queue.push(i).ok();
-        }
+        for &_dep in cmds[i].deps { in_degree[i] += 1; }
     }
 
     let mut sequence = heapless::Vec::<usize, 32>::new();
+    let mut visited = [false; 32];
 
-    while let Some(&node) = queue.first() {
-        queue.remove(0);
-        let cmd = &cmds[node];
-        let _ = writeln!(serial, "[Try] Node {} bytes={:02X?}", node, cmd.bytes);
+    fn backtrack<I2C, S>(
+        cmds: &[CmdNode],
+        i2c: &mut I2C,
+        serial: &mut S,
+        addr: u8,
+        prefix: u8,
+        in_degree: &mut [usize; 32],
+        sequence: &mut heapless::Vec<usize, 32>,
+        visited: &mut [bool; 32],
+    ) -> bool
+    where
+        I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::Read,
+        <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
+        <I2C as embedded_hal::blocking::i2c::Read>::Error: core::fmt::Debug,
+        S: core::fmt::Write,
+    {
+        if sequence.len() == cmds.len() { return true; }
 
-        if cmd.bytes.len() + 1 > BUF_CAP {
-            let _ = writeln!(
-                serial,
-                "[Fail] Node {} buffer overflow bytes={:02X?}",
-                node, cmd.bytes
-            );
-            return Err(ExplorerError::ExecutionFailed);
+        // in-degree 0 の候補ノードを収集
+        let mut candidates = heapless::Vec::<usize, 32>::new();
+        for i in 0..cmds.len() {
+            if !visited[i] && in_degree[i] == 0 { candidates.push(i).ok(); }
         }
 
-        let mut buf = [0u8; BUF_CAP];
-        buf[0] = prefix;
-        buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
-        if i2c.write(addr, &buf[..1 + cmd.bytes.len()]).is_err() {
-            let _ = writeln!(
-                serial,
-                "[Fail] Node {} I2C write failed bytes={:02X?}",
-                node, cmd.bytes
-            );
-            return Err(ExplorerError::ExecutionFailed);
-        }
+        for &node in candidates.iter() {
+            let cmd = &cmds[node];
+            let _ = writeln!(serial, "[Try] Node {} bytes={:02X?}", node, cmd.bytes);
 
-        sequence.push(node).ok();
+            if cmd.bytes.len() + 1 > BUF_CAP {
+                let _ = writeln!(serial, "[Fail] Node {} buffer overflow bytes={:02X?}", node, cmd.bytes);
+                continue;
+            }
 
-        for i in 0..n {
-            if cmds[i].deps.contains(&node) {
-                in_degree[i] -= 1;
-                if in_degree[i] == 0 {
-                    queue.push(i).ok();
-                }
+            let mut buf = [0u8; BUF_CAP];
+            buf[0] = prefix;
+            buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
+            if i2c.write(addr, &buf[..1 + cmd.bytes.len()]).is_err() {
+                let _ = writeln!(serial, "[Fail] Node {} I2C write failed bytes={:02X?}", node, cmd.bytes);
+                continue;
+            }
+
+            // 読み出し検証
+            let mut read_buf = [0u8; BUF_CAP];
+            if i2c.read(addr, &mut read_buf[..cmd.bytes.len()]).is_err() {
+                let _ = writeln!(serial, "[Fail] Node {} I2C read failed after write bytes={:02X?}", node, cmd.bytes);
+                continue;
+            }
+            if &read_buf[..cmd.bytes.len()] != cmd.bytes {
+                let _ = writeln!(serial,
+                    "[Fail] Node {} verification mismatch expected={:02X?} read={:02X?}",
+                    node, cmd.bytes, &read_buf[..cmd.bytes.len()]);
+                continue;
+            }
+
+            // 成功した場合
+            visited[node] = true;
+            sequence.push(node).ok();
+            for i in 0..cmds.len() {
+                if cmds[i].deps.contains(&node) { in_degree[i] -= 1; }
+            }
+
+            if backtrack(cmds, i2c, serial, addr, prefix, in_degree, sequence, visited) {
+                return true;
+            }
+
+            // バックトラック
+            visited[node] = false;
+            sequence.pop();
+            for i in 0..cmds.len() {
+                if cmds[i].deps.contains(&node) { in_degree[i] += 1; }
             }
         }
+
+        false
     }
 
-    if sequence.len() == n {
+    if backtrack(cmds, i2c, serial, addr, prefix, &mut in_degree, &mut sequence, &mut visited) {
         Ok(sequence)
     } else {
-        let _ = writeln!(serial, "[Fail] Sequence incomplete, visited nodes: {:?}", sequence);
+        let _ = writeln!(serial, "[Fail] Sequence could not be completed, visited nodes: {:?}", sequence);
         Err(ExplorerError::ExecutionFailed)
     }
 }

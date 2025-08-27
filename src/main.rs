@@ -30,20 +30,21 @@ fn main() -> ! {
     // ---- Explorer 用コマンド定義 ----
     // 0x00 制御バイトを各コマンドの先頭に含めています
     let explorer_cmds: [CmdNode; 13] = [
-        CmdNode { bytes: &[0x00, 0xAE], deps: &[] },       // Display off
-        CmdNode { bytes: &[0x00, 0xD5, 0x51], deps: &[] }, // Set Display Clock Divide Ratio/Oscillator Frequency
-        CmdNode { bytes: &[0x00, 0xCA, 0x7F], deps: &[] }, // Set Multiplex Ratio
-        CmdNode { bytes: &[0x00, 0xA2, 0x00], deps: &[] }, // Set Display Offset
-        CmdNode { bytes: &[0x00, 0xA1, 0x00], deps: &[] }, // Set Display Start Line
-        CmdNode { bytes: &[0x00, 0xA0], deps: &[] },       // Set Segment Re-map
-        CmdNode { bytes: &[0x00, 0xC8], deps: &[] },       // Set COM Output Scan Direction
-        CmdNode { bytes: &[0x00, 0xAD, 0x8A], deps: &[] }, // Set Vpp
-        CmdNode { bytes: &[0x00, 0xD9, 0x22], deps: &[] }, // Set Pre-charge Period
-        CmdNode { bytes: &[0x00, 0xDB, 0x35], deps: &[] }, // Set VCOMH Deselect Level
-        CmdNode { bytes: &[0x00, 0x8D, 0x14], deps: &[] }, // Set Charge Pump
-        CmdNode { bytes: &[0x00, 0xA6], deps: &[] },       // Normal Display
-        CmdNode { bytes: &[0x00, 0xAF], deps: &[] },       // Display on
-    ];
+    CmdNode { bytes: &[0x00, 0xAE], deps: &[] },        // Display off
+    CmdNode { bytes: &[0x00, 0xD5, 0x51], deps: &[0] }, // Set Display Clock Divide Ratio/Oscillator Frequency
+    CmdNode { bytes: &[0x00, 0xCA, 0x7F], deps: &[0] }, // Set Multiplex Ratio
+    CmdNode { bytes: &[0x00, 0xA2, 0x00], deps: &[0] }, // Set Display Offset
+    CmdNode { bytes: &[0x00, 0xA1, 0x00], deps: &[0] }, // Set Display Start Line
+    CmdNode { bytes: &[0x00, 0xA0], deps: &[0] },       // Set Segment Re-map
+    CmdNode { bytes: &[0x00, 0xC8], deps: &[0] },       // Set COM Output Scan Direction
+    CmdNode { bytes: &[0x00, 0xAD, 0x8A], deps: &[0] }, // Set Vpp
+    CmdNode { bytes: &[0x00, 0xD9, 0x22], deps: &[0] }, // Set Pre-charge Period
+    CmdNode { bytes: &[0x00, 0xDB, 0x35], deps: &[0] }, // Set VCOMH Deselect Level
+    CmdNode { bytes: &[0x00, 0x8D, 0x14], deps: &[0] }, // Set Charge Pump
+    CmdNode { bytes: &[0x00, 0xA6], deps: &[0] },       // Normal Display
+    CmdNode { bytes: &[0x00, 0xAF], deps: &[0] },       // Display on
+];
+
 
     let explorer = Explorer::<13> { sequence: &explorer_cmds };
 

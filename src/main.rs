@@ -101,7 +101,7 @@ fn main() -> ! {
 
     // ---- Explore ----
     writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
-    if let Err(e) = run_single_sequence_explorer::<_, _, 13, 128>(
+    if let Err(e) = run_single_sequence_explorer::<_, _, 15, 128>(
         &explorer,
         &mut i2c,
         &mut serial,

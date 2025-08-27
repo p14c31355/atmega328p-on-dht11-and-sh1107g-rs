@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use embedded_io::Write;
+use core::fmt::Write;
 use panic_abort as _;
 
 use dvcdbg::prelude::*;

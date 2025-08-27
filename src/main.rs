@@ -28,26 +28,27 @@ fn main() -> ! {
     writeln!(serial, "[Info] I2C initialized").ok();
 
     // ---- コマンド配列 ----
-    static EXPLORER_CMDS: [CmdNode; 17] = [
-    CmdNode { bytes: &[0xAE], deps: &[] },          // Display OFF
-    CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },   // Clock
-    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },   // MUX ratio
-    CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },   // Display offset
-    CmdNode { bytes: &[0x40, 0x00], deps: &[3] },   // Start line
-    CmdNode { bytes: &[0xA1, 0x00], deps: &[4] },   // Segment remap
-    CmdNode { bytes: &[0xA0], deps: &[5] },         // (Alt COM config)
-    CmdNode { bytes: &[0xC8], deps: &[6] },         // COM scan dir
-    CmdNode { bytes: &[0xAD, 0x8A], deps: &[7] },   // Charge pump enable
-    CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },   // Pre-charge
-    CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },   // VCOMH
-    CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },  // DC-DC ON
-    // ★ 追加: アドレスリセット
-    CmdNode { bytes: &[0xB0], deps: &[11] },        // Page = 0
-    CmdNode { bytes: &[0x00], deps: &[12] },        // Column low
-    CmdNode { bytes: &[0x10], deps: &[13] },        // Column high
-    CmdNode { bytes: &[0xA6], deps: &[14] },        // Normal display
-    CmdNode { bytes: &[0xAF], deps: &[15] },        // Display ON
+   static EXPLORER_CMDS: [CmdNode; 17] = [
+    CmdNode { bytes: &[0xAE], deps: &[] },
+    CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
+    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },
+    CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },
+    CmdNode { bytes: &[0x40, 0x00], deps: &[3] },
+    CmdNode { bytes: &[0xA1, 0x00], deps: &[4] },
+    CmdNode { bytes: &[0xA0], deps: &[5] },
+    CmdNode { bytes: &[0xC8], deps: &[6] },
+    CmdNode { bytes: &[0xAD, 0x8A], deps: &[7] },
+    CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },
+    CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },
+    CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },
+    // ← ここまでは依存直列
+    CmdNode { bytes: &[0xB0], deps: &[11] },  // Page=0
+    CmdNode { bytes: &[0x00], deps: &[11] },  // Col low (同じ親を参照)
+    CmdNode { bytes: &[0x10], deps: &[11] },  // Col high
+    CmdNode { bytes: &[0xA6], deps: &[12,13,14] }, // Normal depends on all addr-set
+    CmdNode { bytes: &[0xAF], deps: &[15] },  // Display ON
 ];
+
 
 
     let addr: u8 = 0x3C;

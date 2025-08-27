@@ -4,10 +4,11 @@
 use core::fmt::Write;
 use panic_abort as _;
 use dvcdbg::prelude::*;
+use dvcdbg::explorer::ExplorerError; // ExplorerError をインポート
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 3; // 最大2バイト + prefix
+const BUF_CAP: usize = 10; // 最大2バイト + prefix
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -26,6 +27,7 @@ fn main() -> ! {
     );
     writeln!(serial, "[Info] I2C initialized").ok();
 
+    // ---- コマンド配列 ----
     static EXPLORER_CMDS: [CmdNode; 14] = [
         CmdNode { bytes: &[0xAE], deps: &[] },
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
@@ -43,46 +45,84 @@ fn main() -> ! {
         CmdNode { bytes: &[0xAF], deps: &[12] },
     ];
 
+    // ---- Explorer 初期化 ----
     let explorer: Explorer<'static, 14, BUF_CAP> = Explorer {
         sequence: &EXPLORER_CMDS,
     };
 
     writeln!(serial, "[Info] Sending all commands to 0x3C...").ok();
 
-    for (i, node) in EXPLORER_CMDS.iter().enumerate() {
-        writeln!(
-            serial,
-            "[Send] Node {} bytes={:02X?} deps={:?}",
-            i, node.bytes, node.deps
-        )
-        .ok();
+    let addr: u8 = 0x3C; // `addr` をスコープ内で定義
+    let prefix: u8 = 0x00; // `prefix` をスコープ内で定義 (コマンドプレフィックスとして0x00を仮定)
 
-        if let Err(e) = i2c_write_with_prefix(&mut i2c, 0x3C, 0x00, node.bytes) {
-            writeln!(serial, "[Fail] Node {}: {:?}", i, e).ok();
-        } else {
-            writeln!(serial, "[OK] Node {} sent", i).ok();
-        }
+    // `sorted_cmd_bytes_buf` と `sorted_cmd_lengths` が `main` 関数内で定義されていないため、
+    // `run_explorer_with_log` 関数を呼び出すように変更します。
+    // `main` 関数内のこのブロックは、`run_explorer_with_log` の呼び出しに置き換えられます。
+    if let Err(e) = run_explorer_with_log(&explorer, &mut i2c, &mut serial, addr, prefix) {
+        writeln!(serial, "[Fail] Explorer execution failed: {:?}", e).ok();
+    } else {
+        writeln!(serial, "[OK] Explorer execution complete").ok();
     }
-
-    writeln!(serial, "[Info] SH1107G full init test complete").ok();
 
     loop {
         arduino_hal::delay_ms(1000);
     }
 }
 
-/// prefix付きI2C書き込み
-fn i2c_write_with_prefix<I2C>(
+/// Explorer の順序探索 + リアルタイムログ出力
+fn run_explorer_with_log<I2C, S, const N: usize, const BUF_CAP: usize>(
+    explorer: &Explorer<'_, N, BUF_CAP>,
     i2c: &mut I2C,
+    serial: &mut S,
     addr: u8,
     prefix: u8,
-    data: &[u8],
-) -> Result<(), I2C::Error>
+) -> Result<(), ExplorerError>
 where
     I2C: embedded_hal::blocking::i2c::Write,
+    <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
+    S: core::fmt::Write,
 {
-    let mut buf = [0u8; BUF_CAP];
-    buf[0] = prefix;
-    buf[1..=data.len()].copy_from_slice(data);
-    i2c.write(addr, &buf[..=data.len()])
+    let (sorted_cmd_bytes_buf, sorted_cmd_lengths) = explorer
+        .get_one_topological_sort_buf(&mut dvcdbg::logger::SerialLogger::new(serial, dvcdbg::logger::LogLevel::Verbose))
+        .map_err(|_| ExplorerError::DependencyCycle)?; // ExplorerError::TopoSortFailure は存在しないため、DependencyCycle に変更
+
+    // get_one_topological_sort_buf はソートされたコマンドバイトの配列と、各コマンドの長さの配列を返す
+    // 元のコードの q[i] は、このメソッドの内部で使われているキューであり、外部には公開されていない
+    // そのため、ここではソートされたコマンドバイトと長さを直接利用する
+    for i in 0..explorer.sequence.len() {
+        let cmd_bytes = &sorted_cmd_bytes_buf[i][..sorted_cmd_lengths[i]];
+        // ここで元の CmdNode の情報（depsなど）が必要な場合、get_one_topological_sort_buf の戻り値に
+        // 元の CmdNode のインデックスを含めるように変更する必要がある。
+        // しかし、現在のタスクはコンパイルエラーの修正なので、ここでは直接コマンドバイトを使用する。
+        // 依存関係の表示は、元の CmdNode のインデックスが不明なため、一時的に省略する。
+
+        writeln!(
+            serial,
+            "[Send] Command {} bytes={:02X?}",
+            i, cmd_bytes
+        )
+        .ok();
+
+        // prefix とコマンドバイトを結合してI2C書き込みを行う
+        let mut buf: [u8; BUF_CAP] = [0; BUF_CAP];
+        buf[0] = prefix;
+        let mut current_len = 1;
+        for &byte in cmd_bytes.iter() {
+            if current_len < BUF_CAP {
+                buf[current_len] = byte;
+                current_len += 1;
+            } else {
+                writeln!(serial, "[Fail] Command {}: Buffer overflow", i).ok();
+                return Err(ExplorerError::BufferOverflow);
+            }
+        }
+
+        if let Err(e) = i2c.write(addr, &buf[..current_len]) {
+            writeln!(serial, "[Fail] Command {}: {:?}", i, e).ok();
+            return Err(ExplorerError::ExecutionFailed);
+        } else {
+            writeln!(serial, "[OK] Command {} sent", i).ok();
+        }
+    }
+    Ok(())
 }

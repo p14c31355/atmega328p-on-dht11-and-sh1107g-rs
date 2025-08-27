@@ -30,69 +30,81 @@ fn main() -> ! {
     // ---- Explorer 用コマンド定義 ----
     // 0x00 制御バイトを各コマンドの先頭に含めています
     let explorer_cmds: [CmdNode; 15] = [
+        // 0: Display OFF
         CmdNode {
             bytes: &[0xAE],
             deps: &[],
-        }, // 0: Display OFF
+        },
+        // 1: Clock / Oscillator
         CmdNode {
             bytes: &[0xD5, 0x51],
             deps: &[0],
-        }, // 1: Clock / Oscillator
+        },
+        // 2: Mux Ratio
         CmdNode {
             bytes: &[0xCA, 0x7F],
             deps: &[0],
-        }, // 2: Mux Ratio
+        },
+        // 3: Set Mux Ratio (deprecated)
         CmdNode {
             bytes: &[0xA8, 0x3F],
             deps: &[0],
-        }, // 3: Set Mux Ratio (deprecated, but good to have)
+        },
+        // 4: Display Offset
         CmdNode {
             bytes: &[0xD3, 0x60],
             deps: &[0],
-        }, // 4: Display Offset
+        },
+        // 5: Display Start Line
         CmdNode {
             bytes: &[0x40, 0x00],
             deps: &[0],
-        }, // 5: Display Start Line
+        },
+        // 6: Segment Re-map
         CmdNode {
             bytes: &[0xA1, 0x00],
             deps: &[0],
-        }, // 6: Segment Re-map
+        },
+        // 7: Segment Re-map (alternate)
         CmdNode {
             bytes: &[0xA0],
             deps: &[0],
-        }, // 7: Segment Re-map (alternate)
+        },
+        // 8: COM Output Scan
         CmdNode {
             bytes: &[0xC8],
             deps: &[0],
-        }, // 8: COM Output Scan
+        },
+        // 9: Vpp
         CmdNode {
             bytes: &[0xAD, 0x8A],
             deps: &[0],
-        }, // 9: Vpp
+        },
+        // 10: Pre-charge Period
         CmdNode {
             bytes: &[0xD9, 0x22],
             deps: &[0],
-        }, // 10: Pre-charge Period
+        },
+        // 11: VCOMH Deselect
         CmdNode {
             bytes: &[0xDB, 0x35],
             deps: &[0],
-        }, // 11: VCOMH Deselect
+        },
+        // 12: Charge Pump Setting
         CmdNode {
             bytes: &[0x8D, 0x14],
             deps: &[0],
-        }, // 12: Charge Pump Setting
-        // 注: Display ON (0xAF) と Normal Display (0xA6) は、
-        // 全ての設定が完了した後に実行されるため、最も多くのコマンドに依存するようにします。
-        // ここでは、必須の設定である Pre-charge (10), VCOMH (11), Charge Pump (12) に依存させます。
+        },
+        // 13: Normal Display (depends on 10,11,12)
         CmdNode {
             bytes: &[0xA6],
             deps: &[10, 11, 12],
-        }, // 13: Normal Display
+        },
+        // 14: Display ON (depends on 13)
         CmdNode {
             bytes: &[0xAF],
-            deps: &[10, 11, 12, 13],
-        }, // 14: Display ON
+            deps: &[13],
+        },
     ];
 
     let explorer = Explorer::<15> {

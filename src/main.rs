@@ -5,8 +5,7 @@ use core::fmt::Write;
 use panic_abort as _;
 use dvcdbg::prelude::*;
 use dvcdbg::explorer::CmdNode;
-use core::hash::Hasher;
-use hash32::FnvHasher;
+use heapless::index_map::FnvIndexMap;
 
 adapt_serial!(UnoWrapper);
 
@@ -19,7 +18,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Safe DFS Enumerate]");
+    let _ = writeln!(serial, "[SH1107G Stable DFS Enumerate]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -51,10 +50,10 @@ fn main() -> ! {
 
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
-    let mut visited_hashes = heapless::Vec::<u64, 128>::new();
+
+    let mut visited: FnvIndexMap<u64, (), 128> = FnvIndexMap::new();
 
     loop {
-        // DFS対象は DISPLAY OFF/ON を除外
         let mut in_degree = [0usize; 32];
         for i in 1..EXPLORER_CMDS.len()-1 {
             for &dep in EXPLORER_CMDS[i].deps {
@@ -75,7 +74,7 @@ fn main() -> ! {
             prefix,
             &mut in_degree,
             &mut sequence,
-            &mut visited_hashes,
+            &mut visited,
             &mut found_new,
         );
 
@@ -89,7 +88,6 @@ fn main() -> ! {
     }
 }
 
-// DFS探索関数（DISPLAY OFF/ON を除外）
 fn enumerate_and_hash<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
@@ -98,29 +96,28 @@ fn enumerate_and_hash<I2C, S>(
     prefix: u8,
     in_degree: &mut [usize; 32],
     sequence: &mut heapless::Vec<usize, 32>,
-    visited_hashes: &mut heapless::Vec<u64, 128>,
+    visited: &mut FnvIndexMap<u64, (), 128>,
     found_new: &mut bool,
 ) where
     I2C: embedded_hal::blocking::i2c::Write,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    // 全ノード探索（DISPLAY OFF/ON は除外）
     if sequence.len() == cmds.len()-2 {
-        // 出力時に DISPLAY OFF を先頭、DISPLAY ON を末尾に追加
+        // DISPLAY OFF を先頭、DISPLAY ON を末尾に追加
         let mut full_seq = heapless::Vec::<usize, 32>::new();
-        full_seq.push(0).ok(); // DISPLAY OFF
+        full_seq.push(0).ok();
         full_seq.extend_from_slice(sequence).ok();
-        full_seq.push(cmds.len()-1).ok(); // DISPLAY ON
+        full_seq.push(cmds.len()-1).ok();
 
-        let mut hasher = FnvHasher::default();
+        // ハッシュ計算
+        let mut hasher = FnvIndexMap::new();
         for &node in full_seq.iter() {
             hasher.write_usize(node);
         }
         let hash = hasher.finish();
 
-        if !visited_hashes.contains(&hash) {
-            visited_hashes.push(hash).ok();
+        if visited.insert(hash, ()).is_ok() {
             *found_new = true;
 
             for &node in full_seq.iter() {
@@ -147,7 +144,7 @@ fn enumerate_and_hash<I2C, S>(
                 }
             }
 
-            enumerate_and_hash(cmds, i2c, serial, addr, prefix, in_degree, sequence, visited_hashes, found_new);
+            enumerate_and_hash(cmds, i2c, serial, addr, prefix, in_degree, sequence, visited, found_new);
 
             for dep_target in 1..cmds.len()-1 {
                 if cmds[dep_target].deps.contains(&node) {

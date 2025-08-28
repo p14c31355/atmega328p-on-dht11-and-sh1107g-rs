@@ -19,7 +19,7 @@ fn main() -> ! {
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
 
-    let mut logger = SerialLogger::new(&mut serial, LogLevel::Normal);
+    let mut logger: SerialLogger<'_, _, BUF_CAP> = SerialLogger::new(&mut serial, LogLevel::Normal);
     logger.log_info("[SH1107G Stable DFS Enumerate]");
 
     let mut i2c = arduino_hal::I2c::new(
@@ -50,12 +50,12 @@ fn main() -> ! {
         CmdNode { bytes: &[0xAF], deps: &[15] },
     ];
 
-    let explorer = Explorer { sequence: &EXPLORER_CMDS };
+    let explorer: Explorer<'_, 17> = Explorer { sequence: &EXPLORER_CMDS };
     let prefix: u8 = 0x00;
 
     logger.log_info("[Info] Starting explorer...");
 
-    match run_explorer(
+    match run_explorer::<_, _, 17, BUF_CAP>(
         &explorer,
         &mut i2c,
         &mut logger,

@@ -1,10 +1,12 @@
 #![no_std]
 #![no_main]
 
-use core::fmt::Write;
+use core::fmt::Write as FmtWrite;
 use panic_abort as _;
 use dvcdbg::prelude::*;
-use dvcdbg::explorer::{CmdNode, ExplorerError};
+use dvcdbg::explorer::CmdNode;
+
+use embedded_io::{Read, Write as IoWrite}; // ← embedded-io traits
 
 adapt_serial!(UnoWrapper);
 
@@ -17,7 +19,8 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn+Read+Backtrack All Patterns]");
+    FmtWrite::write_fmt(&mut serial, format_args!("[SH1107G Auto VRAM Kahn+Read+Backtrack All Patterns]\n")).ok();
+    IoWrite::flush(&mut serial).ok();
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -25,7 +28,8 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100_000,
     );
-    let _ = writeln!(serial, "[Info] I2C initialized");
+    FmtWrite::write_fmt(&mut serial, format_args!("[Info] I2C initialized\n")).ok();
+    IoWrite::flush(&mut serial).ok();
 
     static EXPLORER_CMDS: [CmdNode; 17] = [
         CmdNode { bytes: &[0xAE], deps: &[] },
@@ -50,19 +54,22 @@ fn main() -> ! {
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn+Read+Backtrack exploration...");
+    FmtWrite::write_fmt(&mut serial, format_args!("[Info] Starting auto VRAM Kahn+Read+Backtrack exploration...\n")).ok();
+    IoWrite::flush(&mut serial).ok();
 
     let mut valid_sequences: heapless::Vec<heapless::Vec<usize,32>,16> = heapless::Vec::new();
 
-    // ---- 探索フェーズ ----
     run_explorer(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix, &mut valid_sequences);
 
     if valid_sequences.is_empty() {
-        let _ = writeln!(serial, "[Fail] No valid sequences found");
+        FmtWrite::write_fmt(&mut serial, format_args!("[Fail] No valid sequences found\n")).ok();
+        IoWrite::flush(&mut serial).ok();
     } else {
-        let _ = writeln!(serial, "[Info] Found {} valid sequence(s)", valid_sequences.len());
+        FmtWrite::write_fmt(&mut serial, format_args!("[Info] Found {} valid sequence(s)\n", valid_sequences.len())).ok();
+        IoWrite::flush(&mut serial).ok();
         for (idx, seq) in valid_sequences.iter().enumerate() {
-            let _ = writeln!(serial, "[Valid Sequence #{}] {:?}", idx+1, seq);
+            FmtWrite::write_fmt(&mut serial, format_args!("[Valid Sequence #{}] {:?}\n", idx+1, seq)).ok();
+            IoWrite::flush(&mut serial).ok();
         }
     }
 
@@ -79,10 +86,10 @@ fn run_explorer<I2C, S>(
     addr: u8,
     prefix: u8,
     valid_sequences: &mut heapless::Vec<heapless::Vec<usize,32>,16>,
-) -> Result<(), ExplorerError>
+)
 where
-    I2C: embedded_hal::blocking::i2c::WriteRead + embedded_hal::blocking::i2c::Write,
-    S: Write,
+    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
+    S: FmtWrite + IoWrite,
 {
     let n = cmds.len();
     let mut in_degree = [0usize;32];
@@ -107,8 +114,8 @@ where
         valid_sequences: &mut heapless::Vec<heapless::Vec<usize,32>,16>,
     ) -> bool
     where
-        I2C: embedded_hal::blocking::i2c::WriteRead + embedded_hal::blocking::i2c::Write,
-        S: Write,
+        I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
+        S: FmtWrite + IoWrite,
     {
         if sequence.len() == cmds.len() {
             // ---- シーケンス検証 ----
@@ -118,32 +125,42 @@ where
                 let mut buf = [0u8; BUF_CAP];
                 buf[0] = prefix;
                 buf[1..1+cmd.bytes.len()].copy_from_slice(cmd.bytes);
+
+                // write
                 if i2c.write(addr, &buf[..1+cmd.bytes.len()]).is_err() {
-                    let _ = writeln!(serial, "[Fail] Node {} write failed", node);
+                    FmtWrite::write_fmt(serial, format_args!("[Fail] Node {} write failed\n", node)).ok();
+                    IoWrite::flush(serial).ok();
                     ok = false;
                     break;
                 }
+
+                // read-back (using write_read: send prefix, then read)
                 let mut read_buf = [0u8; BUF_CAP];
-                if i2c.read(addr, &mut read_buf[..cmd.bytes.len()]).is_err() {
-                    let _ = writeln!(serial, "[Fail] Node {} read failed", node);
+                if i2c.write_read(addr, &[prefix], &mut read_buf[..cmd.bytes.len()]).is_err() {
+                    FmtWrite::write_fmt(serial, format_args!("[Fail] Node {} read failed\n", node)).ok();
+                    IoWrite::flush(serial).ok();
                     ok = false;
                     break;
                 }
+
                 if &read_buf[..cmd.bytes.len()] != cmd.bytes {
-                    let _ = writeln!(serial,
-                        "[Fail] Node {} verification mismatch expected={:02X?} read={:02X?}",
-                        node, cmd.bytes, &read_buf[..cmd.bytes.len()]);
+                    FmtWrite::write_fmt(serial,
+                        format_args!("[Fail] Node {} mismatch expected={:02X?} read={:02X?}\n",
+                        node, cmd.bytes, &read_buf[..cmd.bytes.len()])).ok();
+                    IoWrite::flush(serial).ok();
                     ok = false;
                     break;
                 }
             }
             if ok {
-                let _ = writeln!(serial, "[Success] Sequence {:?} passed verification", sequence);
+                FmtWrite::write_fmt(serial, format_args!("[Success] Sequence {:?} passed\n", sequence)).ok();
+                IoWrite::flush(serial).ok();
                 valid_sequences.push(sequence.clone()).ok();
             }
             return ok;
         }
 
+        // ---- Kahn候補列挙 ----
         let mut candidates = heapless::Vec::<usize,32>::new();
         for i in 0..cmds.len() {
             if !visited[i] && in_degree[i]==0 {
@@ -173,5 +190,4 @@ where
     }
 
     backtrack(cmds, i2c, serial, addr, prefix, &mut in_degree, &mut sequence, &mut visited, valid_sequences);
-    Ok(())
 }

@@ -19,7 +19,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Safe Auto VRAM Enumerate]");
+    let _ = writeln!(serial, "[SH1107G Safe DFS Enumerate]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -54,10 +54,13 @@ fn main() -> ! {
     let mut visited_hashes = heapless::Vec::<u64, 128>::new();
 
     loop {
+        // DFS対象は DISPLAY OFF/ON を除外
         let mut in_degree = [0usize; 32];
-        for i in 0..EXPLORER_CMDS.len() {
+        for i in 1..EXPLORER_CMDS.len()-1 {
             for &dep in EXPLORER_CMDS[i].deps {
-                in_degree[i] += 1;
+                if dep != 0 && dep != EXPLORER_CMDS.len()-1 {
+                    in_degree[i] += 1;
+                }
             }
         }
 
@@ -86,6 +89,7 @@ fn main() -> ! {
     }
 }
 
+// DFS探索関数（DISPLAY OFF/ON を除外）
 fn enumerate_and_hash<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
@@ -101,9 +105,16 @@ fn enumerate_and_hash<I2C, S>(
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
-    if sequence.len() == cmds.len() {
+    // 全ノード探索（DISPLAY OFF/ON は除外）
+    if sequence.len() == cmds.len()-2 {
+        // 出力時に DISPLAY OFF を先頭、DISPLAY ON を末尾に追加
+        let mut full_seq = heapless::Vec::<usize, 32>::new();
+        full_seq.push(0).ok(); // DISPLAY OFF
+        full_seq.extend_from_slice(sequence).ok();
+        full_seq.push(cmds.len()-1).ok(); // DISPLAY ON
+
         let mut hasher = FnvHasher::default();
-        for &node in sequence.iter() {
+        for &node in full_seq.iter() {
             hasher.write_usize(node);
         }
         let hash = hasher.finish();
@@ -112,54 +123,38 @@ fn enumerate_and_hash<I2C, S>(
             visited_hashes.push(hash).ok();
             *found_new = true;
 
-            for &node in sequence.iter() {
+            for &node in full_seq.iter() {
                 let cmd = &cmds[node];
                 let mut buf = [0u8; BUF_CAP];
                 buf[0] = prefix;
-                buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
-                let _ = i2c.write(addr, &buf[..1 + cmd.bytes.len()]);
+                buf[1..1+cmd.bytes.len()].copy_from_slice(cmd.bytes);
+                let _ = i2c.write(addr, &buf[..1+cmd.bytes.len()]);
+                arduino_hal::delay_ms(1);
             }
 
-            let _ = writeln!(serial, "[Seq] {:?}", sequence.as_slice());
+            let _ = writeln!(serial, "[Seq] {:?}", full_seq.as_slice());
         }
         return;
     }
 
-    for node in 0..cmds.len() {
+    for node in 1..cmds.len()-1 { // DISPLAY OFF/ON を除外
         if in_degree[node] == 0 && !sequence.contains(&node) {
-            // DISPLAY OFFは常に最初
-            if sequence.is_empty() && node != 0 {
-                continue;
-            }
-            // DISPLAY ONは常に最後
-            if sequence.len() == cmds.len() - 1 && node != cmds.len() - 1 {
-                continue;
-            }
-
             sequence.push(node).ok();
-            for dep_target in 0..cmds.len() {
+
+            for dep_target in 1..cmds.len()-1 {
                 if cmds[dep_target].deps.contains(&node) {
                     in_degree[dep_target] -= 1;
                 }
             }
 
-            enumerate_and_hash(
-                cmds,
-                i2c,
-                serial,
-                addr,
-                prefix,
-                in_degree,
-                sequence,
-                visited_hashes,
-                found_new,
-            );
+            enumerate_and_hash(cmds, i2c, serial, addr, prefix, in_degree, sequence, visited_hashes, found_new);
 
-            for dep_target in 0..cmds.len() {
+            for dep_target in 1..cmds.len()-1 {
                 if cmds[dep_target].deps.contains(&node) {
                     in_degree[dep_target] += 1;
                 }
             }
+
             sequence.pop();
         }
     }

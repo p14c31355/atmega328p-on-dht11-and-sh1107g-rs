@@ -18,6 +18,7 @@ nb = "1.1.0"
 embedded-hal = "0.2.7"
 embedded-io = "0.6.1"
 hash32 = "1.0.0" # Add hash32 crate
+fnv = { version = "1.0.7", default-features = false }
 
 [dependencies.sh1107g-rs]
 path = "../sh1107g-rs"

@@ -2,12 +2,12 @@
 #![no_main]
 
 use core::fmt::Write;
+use core::hash::Hasher as CoreHasher; // core::hash::Hasher を CoreHasher としてインポート
 use panic_abort as _;
 use dvcdbg::prelude::*;
 use dvcdbg::explorer::CmdNode;
 use heapless::index_map::FnvIndexMap;
-use core::hash::Hasher;
-use hash32::FnvHasher;
+use hash32::{FnvHasher, Hasher}; // hash32::Hasher を Hasher としてインポート
 
 adapt_serial!(UnoWrapper);
 
@@ -31,7 +31,7 @@ fn main() -> ! {
     let _ = writeln!(serial, "[Info] I2C initialized");
 
     static EXPLORER_CMDS: [CmdNode; 17] = [
-        CmdNode { bytes: &[0xAE], deps: &[] },         // DISPLAY OFF
+        CmdNode { bytes: &[0xAE], deps: &[] },
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
         CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },
         CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },
@@ -46,8 +46,8 @@ fn main() -> ! {
         CmdNode { bytes: &[0xB0], deps: &[11] },
         CmdNode { bytes: &[0x00], deps: &[11] },
         CmdNode { bytes: &[0x10], deps: &[11] },
-        CmdNode { bytes: &[0xA6], deps: &[12,13,14] },
-        CmdNode { bytes: &[0xAF], deps: &[15] },       // DISPLAY ON
+        CmdNode { bytes: &[0xA6], deps: &[12, 13, 14] },
+        CmdNode { bytes: &[0xAF], deps: &[15] },
     ];
 
     let addr: u8 = 0x3C;
@@ -57,9 +57,9 @@ fn main() -> ! {
 
     loop {
         let mut in_degree = [0usize; 32];
-        for i in 1..EXPLORER_CMDS.len()-1 {
+        for i in 1..EXPLORER_CMDS.len() - 1 {
             for &dep in EXPLORER_CMDS[i].deps {
-                if dep != 0 && dep != EXPLORER_CMDS.len()-1 {
+                if dep != 0 && dep != EXPLORER_CMDS.len() - 1 {
                     in_degree[i] += 1;
                 }
             }
@@ -103,19 +103,20 @@ fn enumerate_and_hash<I2C, S>(
 ) where
     I2C: embedded_hal::blocking::i2c::Write,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    S: core::fmt::Write,
+    S: Write,
 {
-    if sequence.len() == cmds.len()-2 {
+    if sequence.len() == cmds.len() - 2 {
         let mut full_seq = heapless::Vec::<usize, 32>::new();
         full_seq.push(0).ok();
         full_seq.extend_from_slice(sequence).ok();
-        full_seq.push(cmds.len()-1).ok();
+        full_seq.push(cmds.len() - 1).ok();
 
         let mut hasher = FnvHasher::default();
         for &node in full_seq.iter() {
-            hasher.write_usize(node);
+            let bytes = (node as u64).to_le_bytes();
+            <FnvHasher as core::hash::Hasher>::write(&mut hasher, &bytes);
         }
-        let hash = hasher.finish();
+        let hash = hasher.finish32() as u64;
 
         if visited.insert(hash, ()).is_ok() {
             *found_new = true;
@@ -124,29 +125,40 @@ fn enumerate_and_hash<I2C, S>(
                 let cmd = &cmds[node];
                 let mut buf = [0u8; BUF_CAP];
                 buf[0] = prefix;
-                buf[1..1+cmd.bytes.len()].copy_from_slice(cmd.bytes);
-                let _ = i2c.write(addr, &buf[..1+cmd.bytes.len()]);
+                buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
+                let _ = i2c.write(addr, &buf[..1 + cmd.bytes.len()]);
                 arduino_hal::delay_ms(1);
             }
 
             let _ = writeln!(serial, "[Seq] {:?}", full_seq.as_slice());
+            arduino_hal::delay_ms(5); // 出力後に少し待機
         }
         return;
     }
 
-    for node in 1..cmds.len()-1 {
+    for node in 1..cmds.len() - 1 {
         if in_degree[node] == 0 && !sequence.contains(&node) {
             sequence.push(node).ok();
 
-            for dep_target in 1..cmds.len()-1 {
+            for dep_target in 1..cmds.len() - 1 {
                 if cmds[dep_target].deps.contains(&node) {
                     in_degree[dep_target] -= 1;
                 }
             }
 
-            enumerate_and_hash(cmds, i2c, serial, addr, prefix, in_degree, sequence, visited, found_new);
+            enumerate_and_hash(
+                cmds,
+                i2c,
+                serial,
+                addr,
+                prefix,
+                in_degree,
+                sequence,
+                visited,
+                found_new,
+            );
 
-            for dep_target in 1..cmds.len()-1 {
+            for dep_target in 1..cmds.len() - 1 {
                 if cmds[dep_target].deps.contains(&node) {
                     in_degree[dep_target] += 1;
                 }

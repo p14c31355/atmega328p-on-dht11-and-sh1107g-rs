@@ -2,16 +2,17 @@
 #![no_main]
 
 use core::fmt::Write;
-use core::hash::Hasher as CoreHasher; // core::hash::Hasher を CoreHasher としてインポート
+use core::hash::Hasher; // Re-add core::hash::Hasher
 use panic_abort as _;
 use dvcdbg::prelude::*;
 use dvcdbg::explorer::CmdNode;
+use dvcdbg::compat::ascii;
+use dvcdbg::logger::{SerialLogger, Logger, LogLevel};
 use heapless::index_map::FnvIndexMap;
-use hash32::{FnvHasher, Hasher}; // hash32::Hasher を Hasher としてインポート
-
+use hash32::FnvHasher; // Remove Hasher from here
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 16;
+const BUF_CAP: usize = 32;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -20,7 +21,9 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Stable DFS Enumerate]");
+
+    let mut logger = SerialLogger::new(&mut serial, LogLevel::Normal);
+    logger.log_info("[SH1107G Stable DFS Enumerate]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -28,7 +31,7 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100_000,
     );
-    let _ = writeln!(serial, "[Info] I2C initialized");
+    logger.log_info("[Info] I2C initialized");
 
     static EXPLORER_CMDS: [CmdNode; 17] = [
         CmdNode { bytes: &[0xAE], deps: &[] },
@@ -71,7 +74,7 @@ fn main() -> ! {
         enumerate_and_hash(
             &EXPLORER_CMDS,
             &mut i2c,
-            &mut serial,
+            &mut logger,
             addr,
             prefix,
             &mut in_degree,
@@ -90,10 +93,10 @@ fn main() -> ! {
     }
 }
 
-fn enumerate_and_hash<I2C, S>(
+fn enumerate_and_hash<I2C, L>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
-    serial: &mut S,
+    logger: &mut L,
     addr: u8,
     prefix: u8,
     in_degree: &mut [usize; 32],
@@ -103,22 +106,21 @@ fn enumerate_and_hash<I2C, S>(
 ) where
     I2C: embedded_hal::blocking::i2c::Write,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    S: Write,
+    L: Logger,
 {
     if sequence.len() == cmds.len() - 2 {
         let mut full_seq = heapless::Vec::<usize, 32>::new();
         full_seq.push(0).ok();
-        full_seq.extend_from_slice(sequence).ok();
+        full_seq.extend_from_slice(sequence.as_slice()).ok();
         full_seq.push(cmds.len() - 1).ok();
 
         let mut hasher = FnvHasher::default();
-        for &node in full_seq.iter() {
-            let bytes = (node as u64).to_le_bytes();
-            <FnvHasher as core::hash::Hasher>::write(&mut hasher, &bytes);
+        for node in full_seq.iter().map(|&x| x as u32) {
+            hasher.write_usize(node as usize); // Cast to usize and use write_usize
         }
-        let hash = hasher.finish32() as u64;
-
-        if visited.insert(hash, ()).is_ok() {
+        let hash = hasher.finish() as u32;
+        
+        if visited.insert(hash.into(), ()).is_ok() {
             *found_new = true;
 
             for &node in full_seq.iter() {
@@ -130,8 +132,14 @@ fn enumerate_and_hash<I2C, S>(
                 arduino_hal::delay_ms(1);
             }
 
-            let _ = writeln!(serial, "[Seq] {:?}", full_seq.as_slice());
-            arduino_hal::delay_ms(5); // 出力後に少し待機
+            logger.log_info_fmt(|buf| {
+                buf.clear();
+                for &node in full_seq.iter() {
+                    ascii::write_bytes_hex_fmt(buf, &[(node as u8)])?;
+                    buf.push(' ').ok();
+                }
+                Ok(())
+            });
         }
         return;
     }
@@ -149,7 +157,7 @@ fn enumerate_and_hash<I2C, S>(
             enumerate_and_hash(
                 cmds,
                 i2c,
-                serial,
+                logger,
                 addr,
                 prefix,
                 in_degree,

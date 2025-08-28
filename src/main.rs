@@ -4,13 +4,13 @@
 use core::fmt::Write;
 use panic_abort as _;
 use dvcdbg::prelude::*;
-use dvcdbg::explorer::CmdNode; // This line is not changed
+use dvcdbg::explorer::CmdNode;
 use core::hash::Hasher;
 use hash32::FnvHasher;
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 8;
+const BUF_CAP: usize = 16;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -19,7 +19,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Auto VRAM DFS Topo Enumerate Repeat]");
+    let _ = writeln!(serial, "[SH1107G Safe Auto VRAM Enumerate]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -30,7 +30,7 @@ fn main() -> ! {
     let _ = writeln!(serial, "[Info] I2C initialized");
 
     static EXPLORER_CMDS: [CmdNode; 17] = [
-        CmdNode { bytes: &[0xAE], deps: &[] },
+        CmdNode { bytes: &[0xAE], deps: &[] },         // DISPLAY OFF
         CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },
         CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },
         CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },
@@ -46,13 +46,12 @@ fn main() -> ! {
         CmdNode { bytes: &[0x00], deps: &[11] },
         CmdNode { bytes: &[0x10], deps: &[11] },
         CmdNode { bytes: &[0xA6], deps: &[12,13,14] },
-        CmdNode { bytes: &[0xAF], deps: &[15] },
+        CmdNode { bytes: &[0xAF], deps: &[15] },       // DISPLAY ON
     ];
 
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
-
-    let mut visited_hashes = heapless::Vec::<u64, 32>::new();
+    let mut visited_hashes = heapless::Vec::<u64, 128>::new();
 
     loop {
         let mut in_degree = [0usize; 32];
@@ -95,7 +94,7 @@ fn enumerate_and_hash<I2C, S>(
     prefix: u8,
     in_degree: &mut [usize; 32],
     sequence: &mut heapless::Vec<usize, 32>,
-    visited_hashes: &mut heapless::Vec<u64, 32>,
+    visited_hashes: &mut heapless::Vec<u64, 128>,
     found_new: &mut bool,
 ) where
     I2C: embedded_hal::blocking::i2c::Write,
@@ -128,6 +127,15 @@ fn enumerate_and_hash<I2C, S>(
 
     for node in 0..cmds.len() {
         if in_degree[node] == 0 && !sequence.contains(&node) {
+            // DISPLAY OFFは常に最初
+            if sequence.is_empty() && node != 0 {
+                continue;
+            }
+            // DISPLAY ONは常に最後
+            if sequence.len() == cmds.len() - 1 && node != cmds.len() - 1 {
+                continue;
+            }
+
             sequence.push(node).ok();
             for dep_target in 0..cmds.len() {
                 if cmds[dep_target].deps.contains(&node) {

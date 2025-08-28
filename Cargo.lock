@@ -36,7 +36,7 @@ dependencies = [
  "embedded-io",
  "fnv",
  "hash32 1.0.0",
- "heapless 0.9.1",
+ "heapless",
  "nb 1.1.0",
  "panic-abort",
  "sh1107g-rs",
@@ -112,6 +112,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
 
 [[package]]
+name = "crc32fast"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9481c1c90cbf2ac953f07c8d4a58aa3945c425b7185c9154d67a65e4230da511"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -121,9 +130,10 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 name = "dvcdbg"
 version = "0.2.1"
 dependencies = [
+ "crc32fast",
  "embedded-hal 0.2.7",
  "embedded-io",
- "heapless 0.9.1",
+ "heapless",
  "nb 1.1.0",
 ]
 
@@ -220,16 +230,6 @@ checksum = "8e4e11d13d42fc8d55326b323c63978c75721fbbb695a6e6686765bcb8b33917"
 
 [[package]]
 name = "heapless"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
-dependencies = [
- "hash32 0.3.1",
- "stable_deref_trait",
-]
-
-[[package]]
-name = "heapless"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1edcd5a338e64688fbdcb7531a846cfd3476a54784dcb918a0844682bc7ada5"
@@ -305,7 +305,7 @@ dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",
  "embedded-hal 1.0.0",
- "heapless 0.8.0",
+ "heapless",
 ]
 
 [[package]]

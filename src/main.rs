@@ -2,14 +2,11 @@
 #![no_main]
 
 use core::fmt::Write;
-use core::hash::Hasher; // Re-add core::hash::Hasher
 use panic_abort as _;
 use dvcdbg::prelude::*;
-use dvcdbg::explorer::CmdNode;
-use dvcdbg::compat::ascii;
-use dvcdbg::logger::{SerialLogger, Logger, LogLevel};
-use heapless::index_map::FnvIndexMap;
-use hash32::FnvHasher; // Remove Hasher from here
+use dvcdbg::explorer::{CmdNode, Explorer};
+use dvcdbg::logger::{SerialLogger, LogLevel};
+use dvcdbg::scanner::run_explorer;
 adapt_serial!(UnoWrapper);
 
 const BUF_CAP: usize = 32;
@@ -53,126 +50,26 @@ fn main() -> ! {
         CmdNode { bytes: &[0xAF], deps: &[15] },
     ];
 
-    let addr: u8 = 0x3C;
+    let explorer = Explorer { sequence: &EXPLORER_CMDS };
     let prefix: u8 = 0x00;
 
-    let mut visited: FnvIndexMap<u64, (), 128> = FnvIndexMap::new();
+    logger.log_info("[Info] Starting explorer...");
 
-    loop {
-        let mut in_degree = [0usize; 32];
-        for i in 1..EXPLORER_CMDS.len() - 1 {
-            for &dep in EXPLORER_CMDS[i].deps {
-                if dep != 0 && dep != EXPLORER_CMDS.len() - 1 {
-                    in_degree[i] += 1;
-                }
-            }
-        }
-
-        let mut sequence = heapless::Vec::<usize, 32>::new();
-        let mut found_new = false;
-
-        enumerate_and_hash(
-            &EXPLORER_CMDS,
-            &mut i2c,
-            &mut logger,
-            addr,
-            prefix,
-            &mut in_degree,
-            &mut sequence,
-            &mut visited,
-            &mut found_new,
-        );
-
-        if !found_new {
-            break;
+    match run_explorer(
+        &explorer,
+        &mut i2c,
+        &mut logger,
+        &[],
+        prefix,
+        LogLevel::Normal,
+    ) {
+        Ok(_) => logger.log_info("[Info] Explorer completed successfully."),
+        Err(e) => {
+            let _ = write!(&mut serial, "[Error] Explorer failed: {:?}\r\n", e);
         }
     }
 
     loop {
         arduino_hal::delay_ms(1000);
-    }
-}
-
-fn enumerate_and_hash<I2C, L>(
-    cmds: &[CmdNode],
-    i2c: &mut I2C,
-    logger: &mut L,
-    addr: u8,
-    prefix: u8,
-    in_degree: &mut [usize; 32],
-    sequence: &mut heapless::Vec<usize, 32>,
-    visited: &mut FnvIndexMap<u64, (), 128>,
-    found_new: &mut bool,
-) where
-    I2C: embedded_hal::blocking::i2c::Write,
-    <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    L: Logger,
-{
-    if sequence.len() == cmds.len() - 2 {
-        let mut full_seq = heapless::Vec::<usize, 32>::new();
-        full_seq.push(0).ok();
-        full_seq.extend_from_slice(sequence.as_slice()).ok();
-        full_seq.push(cmds.len() - 1).ok();
-
-        let mut hasher = FnvHasher::default();
-        for node in full_seq.iter().map(|&x| x as u32) {
-            hasher.write_usize(node as usize); // Cast to usize and use write_usize
-        }
-        let hash = hasher.finish() as u32;
-        
-        if visited.insert(hash.into(), ()).is_ok() {
-            *found_new = true;
-
-            for &node in full_seq.iter() {
-                let cmd = &cmds[node];
-                let mut buf = [0u8; BUF_CAP];
-                buf[0] = prefix;
-                buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
-                let _ = i2c.write(addr, &buf[..1 + cmd.bytes.len()]);
-                arduino_hal::delay_ms(1);
-            }
-
-            logger.log_info_fmt(|buf| {
-                buf.clear();
-                for &node in full_seq.iter() {
-                    ascii::write_bytes_hex_fmt(buf, &[(node as u8)])?;
-                    buf.push(' ').ok();
-                }
-                Ok(())
-            });
-        }
-        return;
-    }
-
-    for node in 1..cmds.len() - 1 {
-        if in_degree[node] == 0 && !sequence.contains(&node) {
-            sequence.push(node).ok();
-
-            for dep_target in 1..cmds.len() - 1 {
-                if cmds[dep_target].deps.contains(&node) {
-                    in_degree[dep_target] -= 1;
-                }
-            }
-
-            enumerate_and_hash(
-                cmds,
-                i2c,
-                logger,
-                addr,
-                prefix,
-                in_degree,
-                sequence,
-                visited,
-                found_new,
-            );
-
-            for dep_target in 1..cmds.len() - 1 {
-                if cmds[dep_target].deps.contains(&node) {
-                    in_degree[dep_target] += 1;
-                }
-            }
-
-            sequence.pop();
-        }
     }
 }

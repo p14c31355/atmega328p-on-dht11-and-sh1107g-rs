@@ -8,9 +8,9 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 12; // 分割送信に対応した余裕サイズ
+const BUF_CAP: usize = 8; // 分割送信に対応した余裕サイズ
 const WIDTH: usize = 128;
-const HEIGHT: usize = 128;
+const HEIGHT: usize = 64;
 const PAGE_COUNT: usize = HEIGHT / 8;
 const VRAM_SIZE: usize = WIDTH * PAGE_COUNT;
 
@@ -21,7 +21,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn Test]");
+    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn+Display Test]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -55,10 +55,10 @@ fn main() -> ! {
     let prefix_cmd: u8 = 0x00;
     let prefix_data: u8 = 0x40;
 
-    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn exploration...");
+    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn exploration with display check...");
 
-    match run_auto_vram_kahn(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix_cmd, prefix_data) {
-        Ok(seq) => { let _ = writeln!(serial, "[OK] Sequence found: {:?}", seq); },
+    match run_auto_vram_kahn_display(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix_cmd, prefix_data) {
+        Ok(seq) => { let _ = writeln!(serial, "[OK] Valid sequence found: {:?}", seq); },
         Err(e) => { let _ = writeln!(serial, "[Fail] No valid sequence found: {:?}", e); },
     }
 
@@ -67,8 +67,8 @@ fn main() -> ! {
     }
 }
 
-/// Kahn法でトポロジカルソートしながらI2C送信 & VRAM完全一致検証
-fn run_auto_vram_kahn<I2C, S>(
+/// Kahn法によるトポロジカル探索 + VRAM完全一致チェック + 表示確認
+fn run_auto_vram_kahn_display<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
@@ -92,9 +92,7 @@ where
 
     let mut queue = heapless::Vec::<usize, 32>::new();
     for i in 0..n {
-        if in_degree[i] == 0 {
-            queue.push(i).ok();
-        }
+        if in_degree[i] == 0 { queue.push(i).ok(); }
     }
 
     let mut sequence = heapless::Vec::<usize, 32>::new();
@@ -122,55 +120,47 @@ where
         for i in 0..n {
             if cmds[i].deps.contains(&node) {
                 in_degree[i] -= 1;
-                if in_degree[i] == 0 {
-                    queue.push(i).ok();
-                }
+                if in_degree[i] == 0 { queue.push(i).ok(); }
             }
         }
     }
 
     if sequence.len() != n {
-        let _ = writeln!(serial, "[Fail] Sequence incomplete, visited nodes: {:?}", sequence);
+        let _ = writeln!(serial, "[Fail] Sequence incomplete: {:?}", sequence);
         return Err(ExplorerError::ExecutionFailed);
     }
 
-    // === VRAM完全一致検証 ===
-    let _ = writeln!(serial, "[Info] Starting VRAM full check...");
+    // === Display ON 後の VRAM完全一致検証 ===
+    let _ = writeln!(serial, "[Info] Performing display and VRAM verification...");
     let test_pattern: u8 = 0xAA;
 
-    // 全ページにパターン書き込み
+    // VRAM にパターン書き込み
     for page in 0..PAGE_COUNT {
         let set_page = [prefix_cmd, 0xB0 | (page as u8)];
         let _ = i2c.write(addr, &set_page);
-
-        let set_col_low = [prefix_cmd, 0x00];
-        let _ = i2c.write(addr, &set_col_low);
-        let set_col_high = [prefix_cmd, 0x10];
-        let _ = i2c.write(addr, &set_col_high);
+        let _ = i2c.write(addr, &[prefix_cmd, 0x00]);
+        let _ = i2c.write(addr, &[prefix_cmd, 0x10]);
 
         let mut line = [0u8; 1 + WIDTH];
         line[0] = prefix_data;
-        for b in line[1..].iter_mut() {
-            *b = test_pattern;
+        for b in line[1..].iter_mut() { *b = test_pattern; }
+        if i2c.write(addr, &line).is_err() {
+            let _ = writeln!(serial, "[Fail] Data write failed at page {}", page);
+            return Err(ExplorerError::ExecutionFailed);
         }
-        let _ = i2c.write(addr, &line);
     }
 
-    // 読み出し用バッファ
+    // 読み出して検証
     let mut read_buf = [0u8; WIDTH];
-
     for page in 0..PAGE_COUNT {
-        let set_page = [prefix_cmd, 0xB0 | (page as u8)];
-        let _ = i2c.write(addr, &set_page);
-        let set_col_low = [prefix_cmd, 0x00];
-        let _ = i2c.write(addr, &set_col_low);
-        let set_col_high = [prefix_cmd, 0x10];
-        let _ = i2c.write(addr, &set_col_high);
+        let _ = i2c.write(addr, &[prefix_cmd, 0xB0 | (page as u8)]);
+        let _ = i2c.write(addr, &[prefix_cmd, 0x00]);
+        let _ = i2c.write(addr, &[prefix_cmd, 0x10]);
 
-        // GDDRAMリード
-        // 最初の1バイトはダミーなので2回呼ぶ
+        // ダミー読み出し1バイト
         let mut dummy = [0u8; 1];
         let _ = i2c.write_read(addr, &[prefix_data], &mut dummy);
+
         if i2c.write_read(addr, &[prefix_data], &mut read_buf).is_err() {
             let _ = writeln!(serial, "[Fail] I2C read failed at page {}", page);
             return Err(ExplorerError::ExecutionFailed);
@@ -188,7 +178,6 @@ where
         }
     }
 
-    let _ = writeln!(serial, "[OK] VRAM check passed, init confirmed!");
-
+    let _ = writeln!(serial, "[OK] VRAM check passed, display confirmed!");
     Ok(sequence)
 }

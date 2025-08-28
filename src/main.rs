@@ -8,11 +8,10 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 8; // 分割送信に対応した余裕サイズ
+const BUF_CAP: usize = 8; // 分割送信余裕サイズ
 const WIDTH: usize = 128;
 const HEIGHT: usize = 64;
 const PAGE_COUNT: usize = HEIGHT / 8;
-const VRAM_SIZE: usize = WIDTH * PAGE_COUNT;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -67,7 +66,6 @@ fn main() -> ! {
     }
 }
 
-/// Kahn法によるトポロジカル探索 + VRAM完全一致チェック + 表示確認
 fn run_auto_vram_kahn_display<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
@@ -96,11 +94,13 @@ where
     }
 
     let mut sequence = heapless::Vec::<usize, 32>::new();
+    let mut step = 0;
 
     while let Some(&node) = queue.first() {
         queue.remove(0);
         let cmd = &cmds[node];
-        let _ = writeln!(serial, "[Try] Node {} bytes={:02X?}", node, cmd.bytes);
+        step += 1;
+        let _ = writeln!(serial, "[Progress] Node {}/{}: bytes={:02X?}", step, n, cmd.bytes);
 
         if cmd.bytes.len() + 1 > BUF_CAP {
             let _ = writeln!(serial, "[Fail] Node {} buffer overflow", node);
@@ -134,13 +134,13 @@ where
     let _ = writeln!(serial, "[Info] Performing display and VRAM verification...");
     let test_pattern: u8 = 0xAA;
 
-    // VRAM にパターン書き込み
     for page in 0..PAGE_COUNT {
-        let set_page = [prefix_cmd, 0xB0 | (page as u8)];
-        let _ = i2c.write(addr, &set_page);
+        // ページ設定
+        let _ = i2c.write(addr, &[prefix_cmd, 0xB0 | (page as u8)]);
         let _ = i2c.write(addr, &[prefix_cmd, 0x00]);
         let _ = i2c.write(addr, &[prefix_cmd, 0x10]);
 
+        // データ書き込み
         let mut line = [0u8; 1 + WIDTH];
         line[0] = prefix_data;
         for b in line[1..].iter_mut() { *b = test_pattern; }
@@ -157,7 +157,6 @@ where
         let _ = i2c.write(addr, &[prefix_cmd, 0x00]);
         let _ = i2c.write(addr, &[prefix_cmd, 0x10]);
 
-        // ダミー読み出し1バイト
         let mut dummy = [0u8; 1];
         let _ = i2c.write_read(addr, &[prefix_data], &mut dummy);
 

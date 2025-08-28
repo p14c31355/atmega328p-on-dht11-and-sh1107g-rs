@@ -6,6 +6,8 @@ use panic_abort as _;
 use dvcdbg::prelude::*;
 use dvcdbg::explorer::CmdNode;
 use heapless::index_map::FnvIndexMap;
+use core::hash::Hasher;
+use hash32::FnvHasher;
 
 adapt_serial!(UnoWrapper);
 
@@ -104,14 +106,12 @@ fn enumerate_and_hash<I2C, S>(
     S: core::fmt::Write,
 {
     if sequence.len() == cmds.len()-2 {
-        // DISPLAY OFF を先頭、DISPLAY ON を末尾に追加
         let mut full_seq = heapless::Vec::<usize, 32>::new();
         full_seq.push(0).ok();
         full_seq.extend_from_slice(sequence).ok();
         full_seq.push(cmds.len()-1).ok();
 
-        // ハッシュ計算
-        let mut hasher = FnvIndexMap::new();
+        let mut hasher = FnvHasher::default();
         for &node in full_seq.iter() {
             hasher.write_usize(node);
         }
@@ -134,7 +134,7 @@ fn enumerate_and_hash<I2C, S>(
         return;
     }
 
-    for node in 1..cmds.len()-1 { // DISPLAY OFF/ON を除外
+    for node in 1..cmds.len()-1 {
         if in_degree[node] == 0 && !sequence.contains(&node) {
             sequence.push(node).ok();
 

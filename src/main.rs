@@ -8,10 +8,7 @@ use dvcdbg::explorer::{CmdNode, ExplorerError};
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 8; // 分割送信余裕サイズ
-const WIDTH: usize = 128;
-const HEIGHT: usize = 64;
-const PAGE_COUNT: usize = HEIGHT / 8;
+const BUF_CAP: usize = 8; // 分割送信に対応した余裕サイズ
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -20,7 +17,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn+Display Test]");
+    let _ = writeln!(serial, "[SH1107G Auto VRAM Kahn Test]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -51,13 +48,12 @@ fn main() -> ! {
     ];
 
     let addr: u8 = 0x3C;
-    let prefix_cmd: u8 = 0x00;
-    let prefix_data: u8 = 0x40;
+    let prefix: u8 = 0x00;
 
-    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn exploration with display check...");
+    let _ = writeln!(serial, "[Info] Starting auto VRAM Kahn exploration...");
 
-    match run_auto_vram_kahn_display(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix_cmd, prefix_data) {
-        Ok(seq) => { let _ = writeln!(serial, "[OK] Valid sequence found: {:?}", seq); },
+    match run_auto_vram_kahn(&EXPLORER_CMDS, &mut i2c, &mut serial, addr, prefix) {
+        Ok(seq) => { let _ = writeln!(serial, "[OK] Sequence found: {:?}", seq); },
         Err(e) => { let _ = writeln!(serial, "[Fail] No valid sequence found: {:?}", e); },
     }
 
@@ -66,18 +62,18 @@ fn main() -> ! {
     }
 }
 
-fn run_auto_vram_kahn_display<I2C, S>(
+/// Kahn法でトポロジカルソートしながらI2C送信
+/// 失敗ノードの詳細ログを追加
+fn run_auto_vram_kahn<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
     addr: u8,
-    prefix_cmd: u8,
-    prefix_data: u8,
+    prefix: u8,
 ) -> Result<heapless::Vec<usize, 32>, ExplorerError>
 where
-    I2C: embedded_hal::blocking::i2c::Write + embedded_hal::blocking::i2c::WriteRead,
+    I2C: embedded_hal::blocking::i2c::Write,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
-    <I2C as embedded_hal::blocking::i2c::WriteRead>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
     let n = cmds.len();
@@ -90,28 +86,36 @@ where
 
     let mut queue = heapless::Vec::<usize, 32>::new();
     for i in 0..n {
-        if in_degree[i] == 0 { queue.push(i).ok(); }
+        if in_degree[i] == 0 {
+            queue.push(i).ok();
+        }
     }
 
     let mut sequence = heapless::Vec::<usize, 32>::new();
-    let mut step = 0;
 
     while let Some(&node) = queue.first() {
         queue.remove(0);
         let cmd = &cmds[node];
-        step += 1;
-        let _ = writeln!(serial, "[Progress] Node {}/{}: bytes={:02X?}", step, n, cmd.bytes);
+        let _ = writeln!(serial, "[Try] Node {} bytes={:02X?}", node, cmd.bytes);
 
         if cmd.bytes.len() + 1 > BUF_CAP {
-            let _ = writeln!(serial, "[Fail] Node {} buffer overflow", node);
+            let _ = writeln!(
+                serial,
+                "[Fail] Node {} buffer overflow bytes={:02X?}",
+                node, cmd.bytes
+            );
             return Err(ExplorerError::ExecutionFailed);
         }
 
         let mut buf = [0u8; BUF_CAP];
-        buf[0] = prefix_cmd;
+        buf[0] = prefix;
         buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
         if i2c.write(addr, &buf[..1 + cmd.bytes.len()]).is_err() {
-            let _ = writeln!(serial, "[Fail] Node {} I2C write failed", node);
+            let _ = writeln!(
+                serial,
+                "[Fail] Node {} I2C write failed bytes={:02X?}",
+                node, cmd.bytes
+            );
             return Err(ExplorerError::ExecutionFailed);
         }
 
@@ -120,63 +124,17 @@ where
         for i in 0..n {
             if cmds[i].deps.contains(&node) {
                 in_degree[i] -= 1;
-                if in_degree[i] == 0 { queue.push(i).ok(); }
+                if in_degree[i] == 0 {
+                    queue.push(i).ok();
+                }
             }
         }
     }
 
-    if sequence.len() != n {
-        let _ = writeln!(serial, "[Fail] Sequence incomplete: {:?}", sequence);
-        return Err(ExplorerError::ExecutionFailed);
+    if sequence.len() == n {
+        Ok(sequence)
+    } else {
+        let _ = writeln!(serial, "[Fail] Sequence incomplete, visited nodes: {:?}", sequence);
+        Err(ExplorerError::ExecutionFailed)
     }
-
-    // === Display ON 後の VRAM完全一致検証 ===
-    let _ = writeln!(serial, "[Info] Performing display and VRAM verification...");
-    let test_pattern: u8 = 0xAA;
-
-    for page in 0..PAGE_COUNT {
-        // ページ設定
-        let _ = i2c.write(addr, &[prefix_cmd, 0xB0 | (page as u8)]);
-        let _ = i2c.write(addr, &[prefix_cmd, 0x00]);
-        let _ = i2c.write(addr, &[prefix_cmd, 0x10]);
-
-        // データ書き込み
-        let mut line = [0u8; 1 + WIDTH];
-        line[0] = prefix_data;
-        for b in line[1..].iter_mut() { *b = test_pattern; }
-        if i2c.write(addr, &line).is_err() {
-            let _ = writeln!(serial, "[Fail] Data write failed at page {}", page);
-            return Err(ExplorerError::ExecutionFailed);
-        }
-    }
-
-    // 読み出して検証
-    let mut read_buf = [0u8; WIDTH];
-    for page in 0..PAGE_COUNT {
-        let _ = i2c.write(addr, &[prefix_cmd, 0xB0 | (page as u8)]);
-        let _ = i2c.write(addr, &[prefix_cmd, 0x00]);
-        let _ = i2c.write(addr, &[prefix_cmd, 0x10]);
-
-        let mut dummy = [0u8; 1];
-        let _ = i2c.write_read(addr, &[prefix_data], &mut dummy);
-
-        if i2c.write_read(addr, &[prefix_data], &mut read_buf).is_err() {
-            let _ = writeln!(serial, "[Fail] I2C read failed at page {}", page);
-            return Err(ExplorerError::ExecutionFailed);
-        }
-
-        for (i, &val) in read_buf.iter().enumerate() {
-            if val != test_pattern {
-                let _ = writeln!(
-                    serial,
-                    "[Fail] VRAM mismatch page={} col={} got={:02X} expected={:02X}",
-                    page, i, val, test_pattern
-                );
-                return Err(ExplorerError::ExecutionFailed);
-            }
-        }
-    }
-
-    let _ = writeln!(serial, "[OK] VRAM check passed, display confirmed!");
-    Ok(sequence)
 }

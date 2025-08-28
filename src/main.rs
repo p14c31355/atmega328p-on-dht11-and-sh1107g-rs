@@ -4,11 +4,13 @@
 use core::fmt::Write;
 use panic_abort as _;
 use dvcdbg::prelude::*;
-use dvcdbg::explorer::CmdNode;
+use dvcdbg::explorer::CmdNode; // This line is not changed
+use core::hash::Hasher;
+use hash32::FnvHasher;
 
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 8; // 分割送信に対応した余裕サイズ
+const BUF_CAP: usize = 8;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -17,7 +19,7 @@ fn main() -> ! {
 
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
     arduino_hal::delay_ms(1000);
-    let _ = writeln!(serial, "[SH1107G Auto VRAM DFS Topo Enumerate]");
+    let _ = writeln!(serial, "[SH1107G Auto VRAM DFS Topo Enumerate Repeat]");
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -50,32 +52,42 @@ fn main() -> ! {
     let addr: u8 = 0x3C;
     let prefix: u8 = 0x00;
 
-    let _ = writeln!(serial, "[Info] Starting DFS topo enumeration...");
+    let mut visited_hashes = heapless::Vec::<u64, 32>::new();
 
-    let mut in_degree = [0usize; 32];
-    for i in 0..EXPLORER_CMDS.len() {
-        for &dep in EXPLORER_CMDS[i].deps {
-            in_degree[i] += 1;
+    loop {
+        let mut in_degree = [0usize; 32];
+        for i in 0..EXPLORER_CMDS.len() {
+            for &dep in EXPLORER_CMDS[i].deps {
+                in_degree[i] += 1;
+            }
+        }
+
+        let mut sequence = heapless::Vec::<usize, 32>::new();
+        let mut found_new = false;
+
+        enumerate_and_hash(
+            &EXPLORER_CMDS,
+            &mut i2c,
+            &mut serial,
+            addr,
+            prefix,
+            &mut in_degree,
+            &mut sequence,
+            &mut visited_hashes,
+            &mut found_new,
+        );
+
+        if !found_new {
+            break;
         }
     }
-
-    let mut sequence = heapless::Vec::<usize, 32>::new();
-    enumerate_all(
-        &EXPLORER_CMDS,
-        &mut i2c,
-        &mut serial,
-        addr,
-        prefix,
-        &mut in_degree,
-        &mut sequence,
-    );
 
     loop {
         arduino_hal::delay_ms(1000);
     }
 }
 
-fn enumerate_all<I2C, S>(
+fn enumerate_and_hash<I2C, S>(
     cmds: &[CmdNode],
     i2c: &mut I2C,
     serial: &mut S,
@@ -83,19 +95,33 @@ fn enumerate_all<I2C, S>(
     prefix: u8,
     in_degree: &mut [usize; 32],
     sequence: &mut heapless::Vec<usize, 32>,
+    visited_hashes: &mut heapless::Vec<u64, 32>,
+    found_new: &mut bool,
 ) where
     I2C: embedded_hal::blocking::i2c::Write,
     <I2C as embedded_hal::blocking::i2c::Write>::Error: core::fmt::Debug,
     S: core::fmt::Write,
 {
     if sequence.len() == cmds.len() {
-        let _ = writeln!(serial, "[Seq] {:?}", sequence.as_slice());
+        let mut hasher = FnvHasher::default();
         for &node in sequence.iter() {
-            let cmd = &cmds[node];
-            let mut buf = [0u8; BUF_CAP];
-            buf[0] = prefix;
-            buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
-            let _ = i2c.write(addr, &buf[..1 + cmd.bytes.len()]);
+            hasher.write_usize(node);
+        }
+        let hash = hasher.finish();
+
+        if !visited_hashes.contains(&hash) {
+            visited_hashes.push(hash).ok();
+            *found_new = true;
+
+            for &node in sequence.iter() {
+                let cmd = &cmds[node];
+                let mut buf = [0u8; BUF_CAP];
+                buf[0] = prefix;
+                buf[1..1 + cmd.bytes.len()].copy_from_slice(cmd.bytes);
+                let _ = i2c.write(addr, &buf[..1 + cmd.bytes.len()]);
+            }
+
+            let _ = writeln!(serial, "[Seq] {:?}", sequence.as_slice());
         }
         return;
     }
@@ -109,7 +135,17 @@ fn enumerate_all<I2C, S>(
                 }
             }
 
-            enumerate_all(cmds, i2c, serial, addr, prefix, in_degree, sequence);
+            enumerate_and_hash(
+                cmds,
+                i2c,
+                serial,
+                addr,
+                prefix,
+                in_degree,
+                sequence,
+                visited_hashes,
+                found_new,
+            );
 
             for dep_target in 0..cmds.len() {
                 if cmds[dep_target].deps.contains(&node) {

@@ -8,7 +8,7 @@ use dvcdbg::prelude::*;
 use panic_abort as _;
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 16;
+const BUF_CAP: usize = 128;
 
 #[arduino_hal::entry]
 fn main() -> ! {

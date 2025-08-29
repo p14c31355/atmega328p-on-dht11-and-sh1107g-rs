@@ -15,10 +15,10 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 115200));
+    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 9600));
     arduino_hal::delay_ms(1000);
 
-    let mut logger: SerialLogger<'_, _, BUF_CAP> = SerialLogger::new(&mut serial, LogLevel::Normal);
+    let mut logger: SerialLogger<'_, _, BUF_CAP> = SerialLogger::new(&mut serial, LogLevel::Quiet);
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,

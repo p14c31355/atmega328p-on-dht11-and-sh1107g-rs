@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(asm_experimental_arch)]
 
 use core::fmt::Write;
 use dvcdbg::explore::explorer::{CmdNode, Explorer};
@@ -8,26 +7,6 @@ use dvcdbg::explore::logger::{LogLevel, SerialLogger};
 use dvcdbg::prelude::*;
 use panic_abort as _;
 adapt_serial!(UnoWrapper);
-
-const BUF_CAP: usize = 256;
-
-// extern "C" {
-//     static __bss_end: u8;
-// }
-
-// fn free_ram() -> usize {
-//     let sp: u8;
-//     unsafe {
-//         core::arch::asm!("in {0}, __SP_L__", out(reg) sp);
-//         // Unoは16bit SPなので上位も読む
-//         let sph: u8;
-//         core::arch::asm!("in {0}, __SP_H__", out(reg) sph);
-//         let stack_ptr = ((sph as usize) << 8) | (sp as usize);
-
-//         stack_ptr - (&__bss_end as *const u8 as usize)
-//     }
-// }
-
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -37,7 +16,7 @@ fn main() -> ! {
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 9600));
     arduino_hal::delay_ms(1000);
 
-    let mut logger: SerialLogger<'_, _, BUF_CAP> = SerialLogger::new(&mut serial, LogLevel::Quiet);
+    let mut logger: SerialLogger<'_, _> = SerialLogger::new(&mut serial, LogLevel::Quiet);
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -49,8 +28,6 @@ fn main() -> ! {
         0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40, 0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8A,
         0xD9, 0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0x00, 0x10, 0xA6, 0xAF,
     ];
-
-
 
     static EXPLORER_CMDS: [CmdNode; 17] = [
         CmdNode {
@@ -128,7 +105,6 @@ fn main() -> ! {
     };
     let prefix: u8 = 0x00;
 
-    // let _ = writeln!(logger, "Free SRAM = {}", free_ram());
     let successful_seq = match dvcdbg::scanner::scan_init_sequence(
         &mut i2c,
         &mut logger,
@@ -149,18 +125,16 @@ fn main() -> ! {
     };
     logger.log_info_fmt(|buf| write!(buf, "[log] Start driver safe init"));
     
-    // let _ = writeln!(logger, "Free SRAM = {}", free_ram());
-    let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<BUF_CAP>::new(prefix, successful_seq);
-    const MAX_CMD_LEN: usize = 3;
+    const MAX_CMD_LEN: usize = 26;
+    let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<{INIT_SEQUENCE.len()}, MAX_CMD_LEN>::new(prefix, successful_seq);
 
-    // let _ = writeln!(logger, "Free SRAM = {}", free_ram());
-    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, _, 17, BUF_CAP, MAX_CMD_LEN>(
+    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, _, 17, MAX_CMD_LEN>(
         &explorer,
         &mut i2c,
         &mut executor,
         &mut logger,
         prefix,
-        LogLevel::Quiet,
+        LogLevel::Normal,
     ) {
         Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
         Err(e) => {

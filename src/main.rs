@@ -9,7 +9,7 @@ use panic_abort as _;
 // use dvcdbg::scanner::run_explorer;
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 64; // コマンドの最大長 + 1 (プレフィックス)
+const BUF_CAP: usize = 32; // コマンドの最大長 + 1 (プレフィックス)
 
 #[arduino_hal::entry]
 fn main() -> ! {

@@ -6,10 +6,9 @@ use dvcdbg::explorer::{CmdNode, Explorer};
 use dvcdbg::logger::{LogLevel, SerialLogger};
 use dvcdbg::prelude::*;
 use panic_abort as _;
-// use dvcdbg::scanner::run_explorer;
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 64;
+const BUF_CAP: usize = 16;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -31,6 +30,8 @@ fn main() -> ! {
         0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40, 0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8A,
         0xD9, 0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0x00, 0x10, 0xA6, 0xAF,
     ];
+
+
 
     static EXPLORER_CMDS: [CmdNode; 17] = [
         CmdNode {
@@ -107,15 +108,37 @@ fn main() -> ! {
         sequence: &EXPLORER_CMDS,
     };
     let prefix: u8 = 0x00;
-    let send_addr: u8 = 0x3C;
 
-    match run_explorer::<_, _, 17, BUF_CAP>(
-        &explorer,
+    let successful_seq = match dvcdbg::scanner::scan_init_sequence(
         &mut i2c,
         &mut logger,
-        &INIT_SEQUENCE,
         prefix,
-        LogLevel::Normal, // VerboseからNormalに変更
+        &INIT_SEQUENCE,
+        LogLevel::Verbose,
+    ) {
+        Ok(seq) => seq,
+        Err(e) => {
+            logger.log_error_fmt(|buf| {
+                write!(
+                    buf,
+                    "[error] Initial sequence scan failed: {e:?}. Aborting explorer."
+                )
+            });
+            panic!("Initial sequence scan failed.");
+        }
+    };
+    logger.log_info("[log] Start driver safe init");
+
+    let mut executor = dvcdbg::scanner::PrefixExecutor::<BUF_CAP>::new(prefix, successful_seq);
+    const MAX_CMD_LEN: usize = 3;
+
+    match dvcdbg::scanner::run_pruned_explorer::<_, _, _, 17, BUF_CAP, MAX_CMD_LEN>(
+        &explorer,
+        &mut i2c,
+        &mut executor,
+        &mut logger,
+        prefix,
+        LogLevel::Verbose,
     ) {
         Ok(_) => logger.log_info("[I] Explorer OK."),
         Err(e) => {

@@ -2,8 +2,8 @@
 #![no_main]
 
 use core::fmt::Write;
-use dvcdbg::explorer::{CmdNode, Explorer};
-use dvcdbg::logger::{LogLevel, SerialLogger};
+use dvcdbg::explore::explorer::{CmdNode, Explorer};
+use dvcdbg::explore::logger::{LogLevel, SerialLogger};
 use dvcdbg::prelude::*;
 use panic_abort as _;
 adapt_serial!(UnoWrapper);
@@ -127,25 +127,25 @@ fn main() -> ! {
             panic!("Initial sequence scan failed.");
         }
     };
-    logger.log_info("[log] Start driver safe init");
+    logger.log_info_fmt(|buf| write!(buf, "[log] Start driver safe init"));
 
-    let mut executor = dvcdbg::scanner::PrefixExecutor::<BUF_CAP>::new(prefix, successful_seq);
+    let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<BUF_CAP>::new(prefix, successful_seq);
     const MAX_CMD_LEN: usize = 3;
 
-    match dvcdbg::scanner::run_pruned_explorer::<_, _, _, 17, BUF_CAP, MAX_CMD_LEN>(
+    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, _, 17, BUF_CAP, MAX_CMD_LEN>(
         &explorer,
         &mut i2c,
         &mut executor,
         &mut logger,
         prefix,
-        LogLevel::Verbose,
+        LogLevel::Quiet,
     ) {
-        Ok(_) => logger.log_info("[I] Explorer OK."),
+        Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
         Err(e) => {
             logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
         }
     }
-    logger.log_info("[D] Enter main loop.");
+    logger.log_info_fmt(|buf| write!(buf, "[D] Enter main loop."));
     loop {
         arduino_hal::delay_ms(1000);
     }

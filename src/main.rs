@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(asm_experimental_arch)]
 
 use core::fmt::Write;
 use dvcdbg::explore::explorer::{CmdNode, Explorer};
@@ -8,7 +9,25 @@ use dvcdbg::prelude::*;
 use panic_abort as _;
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 128;
+const BUF_CAP: usize = 256;
+
+// extern "C" {
+//     static __bss_end: u8;
+// }
+
+// fn free_ram() -> usize {
+//     let sp: u8;
+//     unsafe {
+//         core::arch::asm!("in {0}, __SP_L__", out(reg) sp);
+//         // Unoは16bit SPなので上位も読む
+//         let sph: u8;
+//         core::arch::asm!("in {0}, __SP_H__", out(reg) sph);
+//         let stack_ptr = ((sph as usize) << 8) | (sp as usize);
+
+//         stack_ptr - (&__bss_end as *const u8 as usize)
+//     }
+// }
+
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -109,6 +128,7 @@ fn main() -> ! {
     };
     let prefix: u8 = 0x00;
 
+    // let _ = writeln!(logger, "Free SRAM = {}", free_ram());
     let successful_seq = match dvcdbg::scanner::scan_init_sequence(
         &mut i2c,
         &mut logger,
@@ -128,10 +148,12 @@ fn main() -> ! {
         }
     };
     logger.log_info_fmt(|buf| write!(buf, "[log] Start driver safe init"));
-
+    
+    // let _ = writeln!(logger, "Free SRAM = {}", free_ram());
     let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<BUF_CAP>::new(prefix, successful_seq);
     const MAX_CMD_LEN: usize = 3;
 
+    // let _ = writeln!(logger, "Free SRAM = {}", free_ram());
     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, _, 17, BUF_CAP, MAX_CMD_LEN>(
         &explorer,
         &mut i2c,

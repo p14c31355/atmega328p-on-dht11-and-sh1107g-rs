@@ -9,14 +9,14 @@ use panic_abort as _;
 // use dvcdbg::scanner::run_explorer;
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 32; // コマンドの最大長 + 1 (プレフィックス)
+const BUF_CAP: usize = 128;
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 57600));
+    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 115200));
     arduino_hal::delay_ms(1000);
 
     let mut logger: SerialLogger<'_, _, BUF_CAP> = SerialLogger::new(&mut serial, LogLevel::Normal);
@@ -117,14 +117,13 @@ fn main() -> ! {
         prefix,
         LogLevel::Normal, // VerboseからNormalに変更
     ) {
-        Ok(_) => logger.log_info("[I] Explorer OK."), // 短縮
+        Ok(_) => logger.log_info("[I] Explorer OK."),
         Err(e) => {
             logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
-            // 短縮
         }
     }
-    logger.log_info("[D] Enter main loop."); // 短縮
+    logger.log_info("[D] Enter main loop.");
     loop {
-        arduino_hal::delay_ms(1000); // delay_msをコメントアウト
+        arduino_hal::delay_ms(1000);
     }
 }

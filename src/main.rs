@@ -9,7 +9,7 @@ use panic_abort as _;
 // use dvcdbg::scanner::run_explorer;
 adapt_serial!(UnoWrapper);
 
-const BUF_CAP: usize = 128;
+const BUF_CAP: usize = 64;
 
 #[arduino_hal::entry]
 fn main() -> ! {

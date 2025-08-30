@@ -24,7 +24,9 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100_000,
     );
-    const INIT_SEQUENCE: [u8; 26] = [
+    let prefix: u8 = 0x00;
+    const MAX_CMD_LEN: usize = 26;
+    const INIT_SEQUENCE: [u8; MAX_CMD_LEN] = [
         0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40, 0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8A,
         0xD9, 0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0x00, 0x10, 0xA6, 0xAF,
     ];
@@ -103,7 +105,6 @@ fn main() -> ! {
     let explorer: Explorer<'_, 17> = Explorer {
         sequence: &EXPLORER_CMDS,
     };
-    let prefix: u8 = 0x00;
 
     let successful_seq = match dvcdbg::scanner::scan_init_sequence(
         &mut i2c,
@@ -125,7 +126,7 @@ fn main() -> ! {
     };
     logger.log_info_fmt(|buf| write!(buf, "[log] Start driver safe init"));
     
-    const MAX_CMD_LEN: usize = 26;
+    
     let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<{INIT_SEQUENCE.len()}, MAX_CMD_LEN>::new(prefix, successful_seq);
 
     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, _, 17, MAX_CMD_LEN>(

@@ -2,6 +2,7 @@
 #![no_main]
 
 use core::fmt::Write;
+use arduino_hal::hal::i2c;
 use dvcdbg::explore::explorer::{CmdNode, Explorer};
 use dvcdbg::explore::logger::{LogLevel, SerialLogger};
 use dvcdbg::prelude::*;
@@ -16,7 +17,7 @@ fn main() -> ! {
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 9600));
     arduino_hal::delay_ms(1000);
 
-    let mut logger: SerialLogger<'_, _> = SerialLogger::new(&mut serial, LogLevel::Quiet);
+    let mut logger: SerialLogger<'_, _> = SerialLogger::new(&mut serial, LogLevel::Verbose);
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -106,42 +107,24 @@ fn main() -> ! {
         sequence: &EXPLORER_CMDS,
     };
 
-    let successful_seq = match dvcdbg::scanner::scan_init_sequence(
-        &mut i2c,
-        &mut logger,
+    let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<{EXPLORER_CMDS.len()}, MAX_CMD_LEN>::new(
         prefix,
-        &INIT_SEQUENCE,
-        LogLevel::Verbose,
-    ) {
-        Ok(seq) => seq,
-        Err(e) => {
-            logger.log_error_fmt(|buf| {
-                write!(
-                    buf,
-                    "[error] Initial sequence scan failed: {e:?}. Aborting explorer."
-                )
-            });
-            panic!("Initial sequence scan failed.");
-        }
-    };
-    logger.log_info_fmt(|buf| write!(buf, "[log] Start driver safe init"));
-    
-    
-    let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<{INIT_SEQUENCE.len()}, MAX_CMD_LEN>::new(prefix, successful_seq);
+        heapless::Vec::new(),
+    );
 
-    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, _, 17, MAX_CMD_LEN>(
-        &explorer,
-        &mut i2c,
-        &mut executor,
-        &mut logger,
-        prefix,
-        LogLevel::Normal,
-    ) {
-        Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
-        Err(e) => {
-            logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
-        }
+    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
+    &explorer,
+    &mut i2c,
+    &mut logger,
+    prefix,
+    &INIT_SEQUENCE,
+    LogLevel::Verbose,
+) {
+    Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
+    Err(e) => {
+        logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
     }
+}
     logger.log_info_fmt(|buf| write!(buf, "[D] Enter main loop."));
     loop {
         arduino_hal::delay_ms(1000);

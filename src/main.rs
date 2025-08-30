@@ -14,10 +14,10 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 9600));
+    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 115200));
     arduino_hal::delay_ms(1000);
 
-    let mut logger: SerialLogger<'_, _> = SerialLogger::new(&mut serial, LogLevel::Normal);
+    let mut logger: SerialLogger<'_, _> = SerialLogger::new(&mut serial, LogLevel::Verbose);
 
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
@@ -116,20 +116,21 @@ fn main() -> ! {
     };
 
     let prefix: u8 = 0x00;
-    let _ = scan_i2c(&mut i2c, &mut logger, prefix, LogLevel::Verbose);
-//     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
-//     &explorer,
-//     &mut i2c,
-//     &mut logger,
-//     prefix,
-//     &INIT_SEQUENCE,
-//     LogLevel::Verbose,
-// ) {
-//     Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
-//     Err(e) => {
-//         logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
-//     }
-// }
+    // let _ = scan_i2c(&mut i2c, &mut logger, prefix);
+    // let _ = scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE);
+    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
+    &explorer,
+    &mut i2c,
+    &mut logger,
+    prefix,
+    &INIT_SEQUENCE,
+    LogLevel::Verbose,
+) {
+    Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
+    Err(e) => {
+        logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
+    }
+}
     logger.log_info_fmt(|buf| write!(buf, "Enter main loop."));
     loop {
         arduino_hal::delay_ms(1000);

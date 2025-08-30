@@ -25,7 +25,15 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100_000,
     );
-    let prefix: u8 = 0x00;
+    match i2c.write(0x3C, &[0x00]) {
+        Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] I2C OK.")),
+        Err(_) => logger.log_error_fmt(|buf| write!(buf, "[E] I2C failed.")),
+    };
+    arduino_hal::delay_ms(1000);
+    
+    arduino_hal::delay_ms(1000);
+
+    
     const MAX_CMD_LEN: usize = 26;
     const INIT_SEQUENCE: [u8; MAX_CMD_LEN] = [
         0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40, 0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8A,
@@ -107,10 +115,7 @@ fn main() -> ! {
         sequence: &EXPLORER_CMDS,
     };
 
-    let mut executor = dvcdbg::explore::explorer::PrefixExecutor::<{EXPLORER_CMDS.len()}, MAX_CMD_LEN>::new(
-        prefix,
-        heapless::Vec::new(),
-    );
+    let prefix: u8 = 0x3C;
 
     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
     &explorer,

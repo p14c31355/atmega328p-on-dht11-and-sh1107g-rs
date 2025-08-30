@@ -117,19 +117,21 @@ fn main() -> ! {
 
     let prefix: u8 = 0x3C;
 
-    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
-    &explorer,
-    &mut i2c,
-    &mut logger,
-    prefix,
-    &INIT_SEQUENCE,
-    LogLevel::Verbose,
-) {
-    Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
-    Err(e) => {
-        logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
-    }
-}
+    let _ = scan_i2c(&mut i2c, &mut logger, &[prefix], LogLevel::Verbose);
+    // let _ = scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE, LogLevel::Verbose);
+//     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
+//     &explorer,
+//     &mut i2c,
+//     &mut logger,
+//     prefix,
+//     &INIT_SEQUENCE,
+//     LogLevel::Verbose,
+// ) {
+//     Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
+//     Err(e) => {
+//         logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
+//     }
+// }
     logger.log_info_fmt(|buf| write!(buf, "[D] Enter main loop."));
     loop {
         arduino_hal::delay_ms(1000);

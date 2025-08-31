@@ -116,21 +116,33 @@ fn main() -> ! {
     };
 
     let prefix: u8 = 0x00;
-    // let _ = scan_i2c(&mut i2c, &mut logger, prefix);
-    // let _ = scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE);
-    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
-    &explorer,
-    &mut i2c,
-    &mut logger,
-    prefix,
-    &INIT_SEQUENCE,
-    LogLevel::Verbose,
-) {
-    Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
-    Err(e) => {
-        logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
+    let found_addrs = match dvcdbg::scanner::scan_i2c(&mut i2c, &mut logger, prefix) {
+        Ok(addrs) => addrs,
+        Err(e) => {
+            logger.log_error_fmt(|buf| write!(buf, "Failed to scan I2C: {:?}\r\n", e));
+            loop {} // エラーが発生したら停止
+        }
+    };
+
+    if found_addrs.is_empty() {
+        logger.log_error_fmt(|buf| write!(buf, "No I2C devices found.\r\n"));
+        loop {} // デバイスが見つからなければ停止
     }
-}
+
+    let _ = dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE, &found_addrs);
+//     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
+//     &explorer,
+//     &mut i2c,
+//     &mut logger,
+//     prefix,
+//     &INIT_SEQUENCE,
+//     LogLevel::Verbose,
+// ) {
+//     Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
+//     Err(e) => {
+//         logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
+//     }
+// }
     logger.log_info_fmt(|buf| write!(buf, "Enter main loop."));
     loop {
         arduino_hal::delay_ms(1000);

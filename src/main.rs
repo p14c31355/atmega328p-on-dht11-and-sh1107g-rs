@@ -1,3 +1,5 @@
+// main.rs
+
 #![no_std]
 #![no_main]
 
@@ -32,9 +34,13 @@ fn main() -> ! {
     
     arduino_hal::delay_ms(1000);
 
-    
-    const MAX_CMD_LEN: usize = 26;
-    const INIT_SEQUENCE: [u8; MAX_CMD_LEN] = [
+    // This is the count of commands in INIT_SEQUENCE
+    const INIT_SEQUENCE_LEN: usize = 26; 
+    // This is the maximum length of any single command's byte array in EXPLORER_CMDS.
+    // Looking at EXPLORER_CMDS, the longest is &[0xD5, 0x51] which has length 2.
+    const MAX_BYTES_PER_CMD: usize = 2; 
+
+    const INIT_SEQUENCE: [u8; INIT_SEQUENCE_LEN] = [
         0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40, 0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8A,
         0xD9, 0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0x00, 0x10, 0xA6, 0xAF,
     ];
@@ -116,7 +122,7 @@ fn main() -> ! {
 
     let prefix: u8 = 0x00;
     // let _ = dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE);
-    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
+    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, INIT_SEQUENCE_LEN, MAX_BYTES_PER_CMD>(
     &explorer,
     &mut i2c,
     &mut logger,

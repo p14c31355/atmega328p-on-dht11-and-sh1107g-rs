@@ -1,11 +1,12 @@
-// main.rs
 #![no_std]
 #![no_main]
 
 use core::fmt::Write;
+use dvcdbg::compat::util::calculate_cmd_buffer_size;
 use dvcdbg::explore::explorer::{CmdNode, Explorer};
 use dvcdbg::prelude::*;
 use panic_abort as _;
+
 adapt_serial!(UnoWrapper);
 
 #[arduino_hal::entry]
@@ -29,36 +30,41 @@ fn main() -> ! {
     };
     arduino_hal::delay_ms(1000);
 
-    // Init sequence nodes
-    static EXPLORER_CMDS: [CmdNode; 17] = [
-        CmdNode { bytes: &[0xAE], deps: &[] },                  // Display OFF
-        CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },           // Set display clock
-        CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },           // Set multiplex
-        CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },           // Set display offset
-        CmdNode { bytes: &[0x40, 0x00], deps: &[3] },           // Set start line
-        CmdNode { bytes: &[0xA1, 0x00], deps: &[4] },           // Segment remap + col offset
-        CmdNode { bytes: &[0xA0], deps: &[5] },                 // Set scan direction
-        CmdNode { bytes: &[0xC8], deps: &[6] },                 // COM scan direction
-        CmdNode { bytes: &[0xAD, 0x8A], deps: &[7] },           // Set charge pump
-        CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },           // Set pre-charge
-        CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },           // Set VCOM detect
-        CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },          // Enable charge pump
-        CmdNode { bytes: &[0xB0], deps: &[11] },                // Set page start
-        CmdNode { bytes: &[0x00], deps: &[12] },                // Set lower column
-        CmdNode { bytes: &[0x10], deps: &[12] },                // Set higher column
-        CmdNode { bytes: &[0xA6], deps: &[12] },                // Normal display
-        CmdNode { bytes: &[0xAF], deps: &[15] },                // Display ON
-    ];
+    // --- Explorer nodes ---
+    const INIT_SEQUENCE_LEN: usize = 22;
+    const MAX_BYTES_PER_CMD: usize = 2;
 
-    let explorer: Explorer<'_, 17> = Explorer { sequence: &EXPLORER_CMDS };
+    static EXPLORER_CMDS: [CmdNode; 15] = [
+    CmdNode { bytes: &[0xAE], deps: &[] },           // 0
+    CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },    // 1
+    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },    // 2
+    CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },    // 3
+    CmdNode { bytes: &[0x40], deps: &[3] },          // 4
+    CmdNode { bytes: &[0xA1], deps: &[4] },          // 5
+    CmdNode { bytes: &[0xA0], deps: &[5] },          // 6
+    CmdNode { bytes: &[0xC8], deps: &[6] },          // 7
+    CmdNode { bytes: &[0xAD, 0x8B], deps: &[7] },    // 8
+    CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },    // 9
+    CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },    // 10
+    CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },   // 11
+    CmdNode { bytes: &[0x20, 0x00], deps: &[11] },   // 12
+    CmdNode { bytes: &[0xA6], deps: &[12] },         // 13
+    CmdNode { bytes: &[0xAF], deps: &[13] },         // 14
+];
+
+    let explorer: Explorer<'_, INIT_SEQUENCE_LEN> = Explorer {
+        sequence: &EXPLORER_CMDS,
+    };
+
+    const CMD_BUFFER_SIZE: usize = calculate_cmd_buffer_size(1, MAX_BYTES_PER_CMD);
+
     let prefix: u8 = 0x00;
-
-    let _ = match dvcdbg::explore::runner::run_single_sequence_explorer::<_, _, 17, 2, 64>(
+    let _ = match dvcdbg::explore::runner::run_single_sequence_explorer::<_, _, INIT_SEQUENCE_LEN, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE>(
         &explorer,
         &mut i2c,
         &mut serial,
         prefix,
-        0x3C, // Add target_addr
+        0x3C,
     ) {
         Ok(_) => writeln!(serial, "[I] Explorer OK.").ok(),
         Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),

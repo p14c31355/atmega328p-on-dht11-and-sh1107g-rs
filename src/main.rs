@@ -1,10 +1,7 @@
-// main.rs
-
 #![no_std]
 #![no_main]
 
 use core::fmt::Write;
-use dvcdbg::compat::util::calculate_cmd_buffer_size;
 use dvcdbg::explore::explorer::{CmdNode, Explorer};
 use dvcdbg::prelude::*;
 use panic_abort as _;
@@ -29,89 +26,30 @@ fn main() -> ! {
         Err(_) => writeln!(serial, "I2C failed.").ok(),
     };
     arduino_hal::delay_ms(1000);
-    
-    arduino_hal::delay_ms(1000);
 
-    // This is the count of commands in INIT_SEQUENCE
-    const INIT_SEQUENCE_LEN: usize = 26; 
-    // This is the maximum length of any single command's byte array in EXPLORER_CMDS.
-    // Looking at EXPLORER_CMDS, the longest is &[0xD5, 0x51] which has length 2.
-    const MAX_BYTES_PER_CMD: usize = 2; 
-
-    const INIT_SEQUENCE: [u8; INIT_SEQUENCE_LEN] = [
+    const INIT_SEQUENCE: [u8; 26] = [
         0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40, 0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8A,
         0xD9, 0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0x00, 0x10, 0xA6, 0xAF,
     ];
 
     static EXPLORER_CMDS: [CmdNode; 17] = [
-        CmdNode {
-            bytes: &[0xAE],
-            deps: &[],
-        },
-        CmdNode {
-            bytes: &[0xD5, 0x51],
-            deps: &[0u8],
-        },
-        CmdNode {
-            bytes: &[0xA8, 0x3F],
-            deps: &[1u8],
-        },
-        CmdNode {
-            bytes: &[0xD3, 0x60],
-            deps: &[2u8],
-        },
-        CmdNode {
-            bytes: &[0x40, 0x00],
-            deps: &[3u8],
-        },
-        CmdNode {
-            bytes: &[0xA1, 0x00],
-            deps: &[4u8],
-        },
-        CmdNode {
-            bytes: &[0xA0],
-            deps: &[5u8],
-        },
-        CmdNode {
-            bytes: &[0xC8],
-            deps: &[6u8],
-        },
-        CmdNode {
-            bytes: &[0xAD, 0x8A],
-            deps: &[7u8],
-        },
-        CmdNode {
-            bytes: &[0xD9, 0x22],
-            deps: &[8u8],
-        },
-        CmdNode {
-            bytes: &[0xDB, 0x35],
-            deps: &[9u8],
-        },
-        CmdNode {
-            bytes: &[0x8D, 0x14],
-            deps: &[10u8],
-        },
-        CmdNode {
-            bytes: &[0xB0],
-            deps: &[11u8],
-        },
-        CmdNode {
-            bytes: &[0x00],
-            deps: &[11u8],
-        },
-        CmdNode {
-            bytes: &[0x10],
-            deps: &[11u8],
-        },
-        CmdNode {
-            bytes: &[0xA6],
-            deps: &[12u8, 13u8, 14u8],
-        },
-        CmdNode {
-            bytes: &[0xAF],
-            deps: &[15u8],
-        },
+        CmdNode { bytes: &[0xAE], deps: &[] },
+        CmdNode { bytes: &[0xD5, 0x51], deps: &[0u8] },
+        CmdNode { bytes: &[0xA8, 0x3F], deps: &[1u8] },
+        CmdNode { bytes: &[0xD3, 0x60], deps: &[2u8] },
+        CmdNode { bytes: &[0x40, 0x00], deps: &[3u8] },
+        CmdNode { bytes: &[0xA1, 0x00], deps: &[4u8] },
+        CmdNode { bytes: &[0xA0], deps: &[5u8] },
+        CmdNode { bytes: &[0xC8], deps: &[6u8] },
+        CmdNode { bytes: &[0xAD, 0x8A], deps: &[7u8] },
+        CmdNode { bytes: &[0xD9, 0x22], deps: &[8u8] },
+        CmdNode { bytes: &[0xDB, 0x35], deps: &[9u8] },
+        CmdNode { bytes: &[0x8D, 0x14], deps: &[10u8] },
+        CmdNode { bytes: &[0xB0], deps: &[11u8] },
+        CmdNode { bytes: &[0x00], deps: &[11u8] },
+        CmdNode { bytes: &[0x10], deps: &[11u8] },
+        CmdNode { bytes: &[0xA6], deps: &[12u8, 13u8, 14u8] },
+        CmdNode { bytes: &[0xAF], deps: &[15u8] },
     ];
 
     let explorer: Explorer<'_, 17> = Explorer {
@@ -119,8 +57,10 @@ fn main() -> ! {
     };
 
     let prefix: u8 = 0x00;
-    // let _ = dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE);
-    let _ = match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, INIT_SEQUENCE_LEN, {calculate_cmd_buffer_size(1, MAX_BYTES_PER_CMD)}>( // Pass calculated buffer size
+
+    const CMD_BUFFER_SIZE: usize = 1 * 2; // calculate_cmd_buffer_size(1, MAX_BYTES_PER_CMD) の結果
+
+let _ = match dvcdbg::explore::runner::run_explorer::<_, _, 17, 26, CMD_BUFFER_SIZE>(
     &explorer,
     &mut i2c,
     &mut serial,
@@ -128,10 +68,9 @@ fn main() -> ! {
     &INIT_SEQUENCE,
 ) {
     Ok(_) => writeln!(serial, "[I] Explorer OK.").ok(),
-    Err(e) => {
-        writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok()
-    }
+    Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),
 };
+
     writeln!(serial, "Enter main loop.").ok();
     loop {
         arduino_hal::delay_ms(1000);

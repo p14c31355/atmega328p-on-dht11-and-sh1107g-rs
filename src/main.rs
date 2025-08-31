@@ -1,3 +1,4 @@
+// main.rs
 #![no_std]
 #![no_main]
 
@@ -21,13 +22,18 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100_000,
     );
+
     match i2c.write(0x3C, &[0x00]) {
         Ok(_) => writeln!(serial, "I2C OK.").ok(),
         Err(_) => writeln!(serial, "I2C failed.").ok(),
     };
     arduino_hal::delay_ms(1000);
 
-    const INIT_SEQUENCE: [u8; 26] = [
+    const INIT_SEQUENCE_LEN: usize = 26;
+    const MAX_BYTES_PER_CMD: usize = 2;
+    const CMD_BUFFER_SIZE: usize = 2 * MAX_BYTES_PER_CMD; // 単純計算で定義
+
+    const INIT_SEQUENCE: [u8; INIT_SEQUENCE_LEN] = [
         0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40, 0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8A,
         0xD9, 0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0x00, 0x10, 0xA6, 0xAF,
     ];
@@ -48,7 +54,7 @@ fn main() -> ! {
         CmdNode { bytes: &[0xB0], deps: &[11u8] },
         CmdNode { bytes: &[0x00], deps: &[11u8] },
         CmdNode { bytes: &[0x10], deps: &[11u8] },
-        CmdNode { bytes: &[0xA6], deps: &[12u8, 13u8, 14u8] },
+        CmdNode { bytes: &[0xA6], deps: &[11u8] },
         CmdNode { bytes: &[0xAF], deps: &[15u8] },
     ];
 
@@ -58,18 +64,16 @@ fn main() -> ! {
 
     let prefix: u8 = 0x00;
 
-    const CMD_BUFFER_SIZE: usize = 1 * 2; // calculate_cmd_buffer_size(1, MAX_BYTES_PER_CMD) の結果
-
-let _ = match dvcdbg::explore::runner::run_explorer::<_, _, 17, 26, CMD_BUFFER_SIZE>(
-    &explorer,
-    &mut i2c,
-    &mut serial,
-    prefix,
-    &INIT_SEQUENCE,
-) {
-    Ok(_) => writeln!(serial, "[I] Explorer OK.").ok(),
-    Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),
-};
+    let _ = match dvcdbg::explore::runner::run_single_sequence_explorer::<_, _, 17, 26, CMD_BUFFER_SIZE>(
+        &explorer,
+        &mut i2c,
+        &mut serial,
+        prefix,
+        0x3C, // Target address for single sequence explorer
+    ) {
+        Ok(_) => writeln!(serial, "[I] Explorer OK.").ok(),
+        Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),
+    };
 
     writeln!(serial, "Enter main loop.").ok();
     loop {

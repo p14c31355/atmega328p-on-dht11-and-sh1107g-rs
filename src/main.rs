@@ -47,67 +47,67 @@ fn main() -> ! {
         },
         CmdNode {
             bytes: &[0xD5, 0x51],
-            deps: &[0],
+            deps: &[0u8],
         },
         CmdNode {
             bytes: &[0xA8, 0x3F],
-            deps: &[1],
+            deps: &[1u8],
         },
         CmdNode {
             bytes: &[0xD3, 0x60],
-            deps: &[2],
+            deps: &[2u8],
         },
         CmdNode {
             bytes: &[0x40, 0x00],
-            deps: &[3],
+            deps: &[3u8],
         },
         CmdNode {
             bytes: &[0xA1, 0x00],
-            deps: &[4],
+            deps: &[4u8],
         },
         CmdNode {
             bytes: &[0xA0],
-            deps: &[5],
+            deps: &[5u8],
         },
         CmdNode {
             bytes: &[0xC8],
-            deps: &[6],
+            deps: &[6u8],
         },
         CmdNode {
             bytes: &[0xAD, 0x8A],
-            deps: &[7],
+            deps: &[7u8],
         },
         CmdNode {
             bytes: &[0xD9, 0x22],
-            deps: &[8],
+            deps: &[8u8],
         },
         CmdNode {
             bytes: &[0xDB, 0x35],
-            deps: &[9],
+            deps: &[9u8],
         },
         CmdNode {
             bytes: &[0x8D, 0x14],
-            deps: &[10],
+            deps: &[10u8],
         },
         CmdNode {
             bytes: &[0xB0],
-            deps: &[11],
+            deps: &[11u8],
         },
         CmdNode {
             bytes: &[0x00],
-            deps: &[11],
+            deps: &[11u8],
         },
         CmdNode {
             bytes: &[0x10],
-            deps: &[11],
+            deps: &[11u8],
         },
         CmdNode {
             bytes: &[0xA6],
-            deps: &[12, 13, 14],
+            deps: &[12u8, 13u8, 14u8],
         },
         CmdNode {
             bytes: &[0xAF],
-            deps: &[15],
+            deps: &[15u8],
         },
     ];
 
@@ -116,33 +116,20 @@ fn main() -> ! {
     };
 
     let prefix: u8 = 0x00;
-    let found_addrs = match dvcdbg::scanner::scan_i2c(&mut i2c, &mut logger, prefix) {
-        Ok(addrs) => addrs,
-        Err(e) => {
-            logger.log_error_fmt(|buf| write!(buf, "Failed to scan I2C: {:?}\r\n", e));
-            loop {} // エラーが発生したら停止
-        }
-    };
-
-    if found_addrs.is_empty() {
-        logger.log_error_fmt(|buf| write!(buf, "No I2C devices found.\r\n"));
-        loop {} // デバイスが見つからなければ停止
+    // let _ = dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE);
+    match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
+    &explorer,
+    &mut i2c,
+    &mut logger,
+    prefix,
+    &INIT_SEQUENCE,
+    LogLevel::Verbose,
+) {
+    Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
+    Err(e) => {
+        logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
     }
-
-    let _ = dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE, &found_addrs);
-//     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, MAX_CMD_LEN>(
-//     &explorer,
-//     &mut i2c,
-//     &mut logger,
-//     prefix,
-//     &INIT_SEQUENCE,
-//     LogLevel::Verbose,
-// ) {
-//     Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
-//     Err(e) => {
-//         logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
-//     }
-// }
+}
     logger.log_info_fmt(|buf| write!(buf, "Enter main loop."));
     loop {
         arduino_hal::delay_ms(1000);

@@ -6,7 +6,6 @@
 use core::fmt::Write;
 use dvcdbg::compat::util::calculate_cmd_buffer_size;
 use dvcdbg::explore::explorer::{CmdNode, Explorer};
-use dvcdbg::explore::logger::{LogLevel, SerialLogger};
 use dvcdbg::prelude::*;
 use panic_abort as _;
 adapt_serial!(UnoWrapper);
@@ -19,8 +18,6 @@ fn main() -> ! {
     let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 115200));
     arduino_hal::delay_ms(1000);
 
-    let mut logger: SerialLogger<'_, _> = SerialLogger::new(&mut serial, LogLevel::Verbose);
-
     let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(),
@@ -28,8 +25,8 @@ fn main() -> ! {
         100_000,
     );
     match i2c.write(0x3C, &[0x00]) {
-        Ok(_) => logger.log_info_fmt(|buf| write!(buf, "I2C OK.")),
-        Err(_) => logger.log_error_fmt(|buf| write!(buf, "I2C failed.")),
+        Ok(_) => writeln!(serial, "I2C OK.").ok(),
+        Err(_) => writeln!(serial, "I2C failed.").ok(),
     };
     arduino_hal::delay_ms(1000);
     
@@ -122,21 +119,20 @@ fn main() -> ! {
     };
 
     let prefix: u8 = 0x00;
-    let _ = dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE);
-//     match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, INIT_SEQUENCE_LEN, {calculate_cmd_buffer_size(1, MAX_BYTES_PER_CMD)}>( // Pass calculated buffer size
-//     &explorer,
-//     &mut i2c,
-//     &mut logger,
-//     prefix,
-//     &INIT_SEQUENCE,
-//     LogLevel::Verbose,
-// ) {
-//     Ok(_) => logger.log_info_fmt(|buf| write!(buf, "[I] Explorer OK.")),
-//     Err(e) => {
-//         logger.log_error_fmt(|buf| write!(buf, "[E] Explorer failed: {:?}\r\n", e));
-//     }
-// }
-    logger.log_info_fmt(|buf| write!(buf, "Enter main loop."));
+    // let _ = dvcdbg::scanner::scan_init_sequence(&mut i2c, &mut logger, prefix, &INIT_SEQUENCE);
+    let _ = match dvcdbg::explore::runner::run_pruned_explorer::<_, _, {EXPLORER_CMDS.len()}, INIT_SEQUENCE_LEN, {calculate_cmd_buffer_size(1, MAX_BYTES_PER_CMD)}>( // Pass calculated buffer size
+    &explorer,
+    &mut i2c,
+    &mut serial,
+    prefix,
+    &INIT_SEQUENCE,
+) {
+    Ok(_) => writeln!(serial, "[I] Explorer OK.").ok(),
+    Err(e) => {
+        writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok()
+    }
+};
+    writeln!(serial, "Enter main loop.").ok();
     loop {
         arduino_hal::delay_ms(1000);
     }

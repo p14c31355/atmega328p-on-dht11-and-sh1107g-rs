@@ -2,7 +2,6 @@
 #![no_main]
 
 use core::fmt::Write;
-use arduino_hal::hal::i2c;
 use dvcdbg::explore::explorer::{CmdNode, Explorer};
 use dvcdbg::explore::logger::{LogLevel, SerialLogger};
 use dvcdbg::prelude::*;

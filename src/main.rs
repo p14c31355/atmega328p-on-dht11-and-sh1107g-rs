@@ -45,7 +45,7 @@ fn main() -> ! {
     // -----------------------
 
     // 1) factorial explorer
-    let (explorer_instance, _executor_instance) = nodes! {
+    let explorer_instance = nodes! {
         prefix = PREFIX,
         [
             [0xAE],
@@ -66,7 +66,10 @@ fn main() -> ! {
         ]
     };
 
+
     const NODES_COUNT: usize = 15; // 手動で再定義
+    const BYTES_MAX: usize = 2; // nodes!マクロから取得
+    const DEPS_MAX: usize = 1; // nodes!マクロから取得
     const CMD_BUFFER_SIZE: usize = 3; // 手動で再定義
 
     const INIT_SEQUENCE_LEN: usize = INIT_SEQUENCE.len();
@@ -78,64 +81,15 @@ fn main() -> ! {
     //     PREFIX,
     //     &INIT_SEQUENCE,
     //     NODES_COUNT,
+    //     DEPS_MAX, // Dを追加
     //     INIT_SEQUENCE_LEN,
     //     CMD_BUFFER_SIZE
     // };
 
-    /*
-    // 2) pruning explorer
-    let res = pruning_sort! {
-        prefix = PREFIX,
-        init = init_sequence,
-        nodes = [
-            [0xAE],
-            [0xD5, 0x51] @ [0],
-            [0xA8, 0x3F] @ [1],
-            [0xD3, 0x60] @ [2],
-            [0x40] @ [3],
-            [0xA1] @ [4],
-            [0xA0] @ [5],
-            [0xC8] @ [6],
-            [0xAD, 0x8B] @ [7],
-            [0xD9, 0x22] @ [8],
-            [0xDB, 0x35] @ [9],
-            [0x8D, 0x14] @ [10],
-            [0x20, 0x00] @ [11],
-            [0xA6] @ [12],
-            [0xAF] @ [13]
-        ],
-        &mut i2c,
-        &mut serial
-    };
-    */
+    let (explorer, _executor) = explorer_instance; // _executor は使用しないためアンダースコアを付ける
+    let res = pruning_sort!(explorer, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, NODES_COUNT, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE, 14);
 
-    /*
-    // 3) single topological sort
-    let res = get_one_sort! {
-        prefix = PREFIX,
-        init = init_sequence,
-        nodes = [
-            [0xAE],
-            [0xD5, 0x51] @ [0],
-            [0xA8, 0x3F] @ [1],
-            [0xD3, 0x60] @ [2],
-            [0x40] @ [3],
-            [0xA1] @ [4],
-            [0xA0] @ [5],
-            [0xC8] @ [6],
-            [0xAD, 0x8B] @ [7],
-            [0xD9, 0x22] @ [8],
-            [0xDB, 0x35] @ [9],
-            [0x8D, 0x14] @ [10],
-            [0x20, 0x00] @ [11],
-            [0xA6] @ [12],
-            [0xAF] @ [13]
-        ],
-        &mut i2c,
-        &mut serial
-    };
-    */
-
+    
     match res {
         Ok(()) => writeln!(serial, "[I] Explorer OK.").ok(),
         Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),

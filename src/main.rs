@@ -32,43 +32,40 @@ fn main() -> ! {
 
     // --- Explorer nodes ---
     const INIT_SEQUENCE_LEN: usize = 22;
-    const MAX_BYTES_PER_CMD: usize = 2;
-
-    static EXPLORER_CMDS: [CmdNode; 15] = [
-    CmdNode { bytes: &[0xAE], deps: &[] },           // 0
-    CmdNode { bytes: &[0xD5, 0x51], deps: &[0] },    // 1
-    CmdNode { bytes: &[0xA8, 0x3F], deps: &[1] },    // 2
-    CmdNode { bytes: &[0xD3, 0x60], deps: &[2] },    // 3
-    CmdNode { bytes: &[0x40], deps: &[3] },          // 4
-    CmdNode { bytes: &[0xA1], deps: &[4] },          // 5
-    CmdNode { bytes: &[0xA0], deps: &[5] },          // 6
-    CmdNode { bytes: &[0xC8], deps: &[6] },          // 7
-    CmdNode { bytes: &[0xAD, 0x8B], deps: &[7] },    // 8
-    CmdNode { bytes: &[0xD9, 0x22], deps: &[8] },    // 9
-    CmdNode { bytes: &[0xDB, 0x35], deps: &[9] },    // 10
-    CmdNode { bytes: &[0x8D, 0x14], deps: &[10] },   // 11
-    CmdNode { bytes: &[0x20, 0x00], deps: &[11] },   // 12
-    CmdNode { bytes: &[0xA6], deps: &[12] },         // 13
-    CmdNode { bytes: &[0xAF], deps: &[13] },         // 14
-];
-
-    let explorer: Explorer<'_, INIT_SEQUENCE_LEN> = Explorer {
-        sequence: &EXPLORER_CMDS,
-    };
-
-    const CMD_BUFFER_SIZE: usize = calculate_cmd_buffer_size(1, MAX_BYTES_PER_CMD);
-
     let prefix: u8 = 0x00;
-    let _ = match dvcdbg::explore::runner::run_single_sequence_explorer::<_, _, INIT_SEQUENCE_LEN, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE>(
-        &explorer,
-        &mut i2c,
-        &mut serial,
-        prefix,
-        0x3C,
-    ) {
-        Ok(_) => writeln!(serial, "[I] Explorer OK.").ok(),
-        Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),
-    };
+
+let res = factorial_sort! {
+    prefix,
+    init = [
+        0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40,
+        0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8B, 0xD9,
+        0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0
+    ],
+    nodes = [
+        [0xAE],
+        [0xD5, 0x51] @ [0],
+        [0xA8, 0x3F] @ [1],
+        [0xD3, 0x60] @ [2],
+        [0x40] @ [3],
+        [0xA1] @ [4],
+        [0xA0] @ [5],
+        [0xC8] @ [6],
+        [0xAD, 0x8B] @ [7],
+        [0xD9, 0x22] @ [8],
+        [0xDB, 0x35] @ [9],
+        [0x8D, 0x14] @ [10],
+        [0x20, 0x00] @ [11],
+        [0xA6] @ [12],
+        [0xAF] @ [13]
+    ],
+    &mut i2c,
+    &mut serial
+};
+
+match res {
+    Ok(()) => writeln!(serial, "[I] Explorer OK.").ok(),
+    Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),
+};
 
     writeln!(serial, "Enter main loop.").ok();
     loop {

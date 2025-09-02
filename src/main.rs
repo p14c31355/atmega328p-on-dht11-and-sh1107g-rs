@@ -53,8 +53,8 @@ fn main() -> ! {
         ]
     };
     arduino_hal::delay_ms(1000);
-    
-    let _ = pruning_sort!(&explorer_instance.0, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, 16, 23, 3, 15);
-    
+
+    let _ = pruning_sort!(explorer_instance.0, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, 16, 23, 3, 15);
+
     loop {}
 }

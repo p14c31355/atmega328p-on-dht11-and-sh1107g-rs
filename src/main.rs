@@ -3,7 +3,6 @@
 
 use core::fmt::Write;
 use dvcdbg::prelude::*;
-use dvcdbg::nodes; // nodes!マクロをインポート
 use panic_abort as _;
 
 adapt_serial!(UnoWrapper);
@@ -22,8 +21,6 @@ fn main() -> ! {
         pins.a5.into_pull_up_input(),
         100_000,
     );
-
-    writeln!(serial, "Starting I2C check...").ok();
 
     match i2c.write(0x3C, &[0x00]) {
         Ok(_) => writeln!(serial, "I2C OK.").ok(),
@@ -68,23 +65,9 @@ fn main() -> ! {
 
 
     const NODES_COUNT: usize = 15; // 手動で再定義
-    const BYTES_MAX: usize = 2; // nodes!マクロから取得
-    const DEPS_MAX: usize = 1; // nodes!マクロから取得
     const CMD_BUFFER_SIZE: usize = 3; // 手動で再定義
 
     const INIT_SEQUENCE_LEN: usize = INIT_SEQUENCE.len();
-
-    // let res = factorial_sort! {
-    //     explorer_instance,
-    //     &mut i2c,
-    //     &mut serial,
-    //     PREFIX,
-    //     &INIT_SEQUENCE,
-    //     NODES_COUNT,
-    //     DEPS_MAX, // Dを追加
-    //     INIT_SEQUENCE_LEN,
-    //     CMD_BUFFER_SIZE
-    // };
 
     let (explorer, _executor) = explorer_instance; // _executor は使用しないためアンダースコアを付ける
     let res = pruning_sort!(explorer, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, NODES_COUNT, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE, 14);
@@ -92,7 +75,7 @@ fn main() -> ! {
     
     match res {
         Ok(()) => writeln!(serial, "[I] Explorer OK.").ok(),
-        Err(e) => writeln!(serial, "[E] Explorer failed: {:?}\r\n", e).ok(),
+        Err(e) => writeln!(serial, "[E] Explorer failed: {e:?}\r\n").ok(),
     };
 
     writeln!(serial, "Enter main loop.").ok();

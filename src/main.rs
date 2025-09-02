@@ -22,12 +22,6 @@ fn main() -> ! {
         100_000,
     );
 
-    match i2c.write(0x3C, &[0x00]) {
-        Ok(_) => writeln!(serial, "I2C OK.").ok(),
-        Err(_) => writeln!(serial, "I2C failed.").ok(),
-    };
-    arduino_hal::delay_ms(1000);
-
     const PREFIX: u8 = 0x00;
 
     // --- Explorerノード定義 ---
@@ -37,45 +31,45 @@ fn main() -> ! {
         0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0
     ];
 
-    // let _ = scan_i2c(&mut i2c, &mut serial, PREFIX,);
+    // let _ = scan_i2c(&mut i2c, &mut serial, PREFIX);
     // let _ = scan_init_sequence(&mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE);
-    // let explorer_instance = nodes! {
-    //     prefix = PREFIX,
-    //     [
-    //         [0xAE],
-    //         [0xD5, 0x51] @ [0],
-    //         [0xA8, 0x3F] @ [1],
-    //         [0xD3, 0x60] @ [2],
-    //         [0x40] @ [3],
-    //         [0xA1] @ [4],
-    //         [0xA0] @ [5],
-    //         [0xC8] @ [6],
-    //         [0xAD, 0x8B] @ [7],
-    //         [0xD9, 0x22] @ [8],
-    //         [0xDB, 0x35] @ [9],
-    //         [0x8D, 0x14] @ [10],
-    //         [0x20, 0x00] @ [11],
-    //         [0xA6] @ [12],
-    //         [0xAF] @ [13]
-    //     ]
-    // };
+    let explorer_instance = nodes! {
+        prefix = PREFIX,
+        [
+            [0xAE],
+            [0xD5, 0x51] @ [0],
+            [0xA8, 0x3F] @ [1],
+            [0xD3, 0x60] @ [2],
+            [0x40] @ [3],
+            [0xA1] @ [4],
+            [0xA0] @ [5],
+            [0xC8] @ [6],
+            [0xAD, 0x8B] @ [7],
+            [0xD9, 0x22] @ [8],
+            [0xDB, 0x35] @ [9],
+            [0x8D, 0x14] @ [10],
+            [0x20, 0x00] @ [11],
+            [0xA6] @ [12],
+            [0xAF] @ [13]
+        ]
+    };
 
 
-    // const NODES_COUNT: usize = 15; // 手動で再定義
-    // const CMD_BUFFER_SIZE: usize = 3; // 手動で再定義
+    const NODES_COUNT: usize = 15; // 手動で再定義
+    const CMD_BUFFER_SIZE: usize = 3; // 手動で再定義
 
-    // const INIT_SEQUENCE_LEN: usize = INIT_SEQUENCE.len();
+    const INIT_SEQUENCE_LEN: usize = INIT_SEQUENCE.len();
 
-    // let (explorer, _executor) = explorer_instance; // _executor は使用しないためアンダースコアを付ける
-    // let res = pruning_sort!(explorer, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, NODES_COUNT, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE, 14);
+    let (explorer, _executor) = explorer_instance; // _executor は使用しないためアンダースコアを付ける
+    let res = pruning_sort!(explorer, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, NODES_COUNT, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE, 14);
 
     
-    // match res {
-    //     Ok(()) => writeln!(serial, "[I] Explorer OK.").ok(),
-    //     Err(e) => writeln!(serial, "[E] Explorer failed: {e:?}\r\n").ok(),
-    // };
+    match res {
+        Ok(()) => Write::write_str(&mut serial, "[I] Explorer OK.").ok(),
+        Err(e) => writeln!(&mut serial, "[E] Explorer failed: {e:?}").ok(),
+    };
 
-    writeln!(serial, "Enter main loop.").ok();
+    core::fmt::Write::write_str(&mut serial, "Enter main loop.").ok();
     loop {
         arduino_hal::delay_ms(1000);
     }

@@ -1,3 +1,4 @@
+// main.rs
 #![no_std]
 #![no_main]
 
@@ -32,10 +33,10 @@ fn main() -> ! {
 ];
 
 
-    let _ = scan_i2c(&mut i2c, &mut serial, PREFIX);
-    arduino_hal::delay_ms(1000);
-    let _ = scan_init_sequence(&mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE);
-    arduino_hal::delay_ms(1000);
+    // let _ = scan_i2c(&mut i2c, &mut serial, PREFIX);
+    // arduino_hal::delay_ms(1000);
+    // let _ = scan_init_sequence(&mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE);
+    // arduino_hal::delay_ms(1000);
 
     let explorer_instance = nodes! {
         prefix = PREFIX,
@@ -59,26 +60,8 @@ fn main() -> ! {
         ]
     };
     arduino_hal::delay_ms(1000);
-
-
-    const NODES_COUNT: usize = 16;
-    const CMD_BUFFER_SIZE: usize = 47;
-
-    const INIT_SEQUENCE_LEN: usize = INIT_SEQUENCE.len();
-
-    let (explorer, _executor) = explorer_instance;
-    arduino_hal::delay_ms(1000);
-
-    let res = pruning_sort!(explorer, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, NODES_COUNT, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE, 15);
-
     
-    match res {
-        Ok(()) => Write::write_str(&mut serial, "[I] Explorer OK.").ok(),
-        Err(e) => writeln!(&mut serial, "[E] Explorer failed: {e}").ok(),
-    };
-
-    core::fmt::Write::write_str(&mut serial, "Enter main loop.").ok();
-    loop {
-        arduino_hal::delay_ms(1000);
-    }
+    let _ = pruning_sort!(explorer_instance.0, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, 16, 23, 10, 15);
+    
+    loop {}
 }

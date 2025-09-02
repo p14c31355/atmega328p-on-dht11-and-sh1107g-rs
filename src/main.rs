@@ -1,4 +1,3 @@
-// main.rs
 #![no_std]
 #![no_main]
 
@@ -32,12 +31,6 @@ fn main() -> ! {
     0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0xAF
 ];
 
-
-    // let _ = scan_i2c(&mut i2c, &mut serial, PREFIX);
-    // arduino_hal::delay_ms(1000);
-    // let _ = scan_init_sequence(&mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE);
-    // arduino_hal::delay_ms(1000);
-
     let explorer_instance = nodes! {
         prefix = PREFIX,
         [
@@ -61,7 +54,7 @@ fn main() -> ! {
     };
     arduino_hal::delay_ms(1000);
     
-    let _ = pruning_sort!(explorer_instance.0, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, 16, 23, 10, 15);
+    let _ = pruning_sort!(&explorer_instance.0, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, 16, 23, 3, 15);
     
     loop {}
 }

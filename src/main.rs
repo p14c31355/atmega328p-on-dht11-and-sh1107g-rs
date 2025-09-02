@@ -24,15 +24,16 @@ fn main() -> ! {
 
     const PREFIX: u8 = 0x00;
 
-    // --- Explorerノード定義 ---
-    const INIT_SEQUENCE: [u8; 22] = [
-        0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40,
-        0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8B, 0xD9,
-        0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0
-    ];
+    // --- Explorer nodes define ---
+    const INIT_SEQUENCE: [u8; 23] = [
+    0xAE, 0xD5, 0x51, 0xA8, 0x3F, 0xD3, 0x60, 0x40,
+    0x00, 0xA1, 0x00, 0xA0, 0xC8, 0xAD, 0x8B, 0xD9,
+    0x22, 0xDB, 0x35, 0x8D, 0x14, 0xB0, 0xAF
+];
 
-    // let _ = scan_i2c(&mut i2c, &mut serial, PREFIX);
-    // let _ = scan_init_sequence(&mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE);
+
+    let _ = scan_i2c(&mut i2c, &mut serial, PREFIX);
+    let _ = scan_init_sequence(&mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE);
     let explorer_instance = nodes! {
         prefix = PREFIX,
         [
@@ -50,18 +51,19 @@ fn main() -> ! {
             [0x8D, 0x14] @ [10],
             [0x20, 0x00] @ [11],
             [0xA6] @ [12],
-            [0xAF] @ [13]
+            [0xAF] @ [13],
+            [0xB0] @ [14]
         ]
     };
 
 
-    const NODES_COUNT: usize = 15; // 手動で再定義
-    const CMD_BUFFER_SIZE: usize = 3; // 手動で再定義
+    const NODES_COUNT: usize = 16;
+    const CMD_BUFFER_SIZE: usize = 3;
 
     const INIT_SEQUENCE_LEN: usize = INIT_SEQUENCE.len();
 
-    let (explorer, _executor) = explorer_instance; // _executor は使用しないためアンダースコアを付ける
-    let res = pruning_sort!(explorer, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, NODES_COUNT, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE, 14);
+    let (explorer, _executor) = explorer_instance;
+    let res = pruning_sort!(explorer, &mut i2c, &mut serial, PREFIX, &INIT_SEQUENCE, NODES_COUNT, INIT_SEQUENCE_LEN, CMD_BUFFER_SIZE, 15);
 
     
     match res {

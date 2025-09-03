@@ -4,6 +4,20 @@
 use dvcdbg::prelude::*;
 use panic_abort as _;
 
+use embedded_graphics::{
+    mono_font::{
+        ascii::FONT_8X13_BOLD,
+        MonoTextStyle,
+    },
+    pixelcolor::BinaryColor,
+    prelude::*,
+    primitives::{Circle, Rectangle, PrimitiveStyle},
+    text::{Baseline, Text},
+};
+
+use sh1107g_rs::Sh1107gBuilder;
+
+// A wrapper for Serial communication
 adapt_serial!(UnoWrapper);
 
 #[arduino_hal::entry]
@@ -11,59 +25,56 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
 
-    let mut serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 115200));
+    // Initialize serial for debugging
+    // let serial = UnoWrapper(arduino_hal::default_serial!(dp, pins, 115200));
     arduino_hal::delay_ms(1000);
 
-    let mut i2c = arduino_hal::I2c::new(
+    // Initialize I2C bus
+    let i2c = arduino_hal::I2c::new(
         dp.TWI,
-        pins.a4.into_pull_up_input(),
-        pins.a5.into_pull_up_input(),
+        pins.a4.into_pull_up_input(), // SDA
+        pins.a5.into_pull_up_input(), // SCL
         100_000,
     );
 
-    const PREFIX: u8 = 0x00;
-    let explorer_instance = nodes! {
-        prefix = PREFIX,
-        [
-            // init commands
-            [0xAE],
-            [0xD5, 0x51] @ [0],
-            [0xA8, 0x3F] @ [1],
-            [0xD3, 0x60] @ [2],
-            [0x40] @ [3],
-            [0xA1] @ [4],
-            [0xA0] @ [5],
-            [0xC8] @ [6],
-            [0x81, 0x2F] @ [7],
-            [0xAD, 0x8B] @ [8],
-            [0xD9, 0x22] @ [9],
-            [0xDB, 0x35] @ [10],
-            [0x8D, 0x14] @ [11],
-            [0xA4] @ [12],
-            // init pages
-            [0xB0, 0x00, 0x00] @ [12], // Page 0, Column 0
-            [0xB1, 0x00, 0x00] @ [12], // Page 1
-            [0xB2, 0x00, 0x00] @ [12], // Page 2
-            [0xB3, 0x00, 0x00] @ [12], // Page 3
-            [0xB4, 0x00, 0x00] @ [12], // Page 4
-            [0xB5, 0x00, 0x00] @ [12], // Page 5
-            [0xB6, 0x00, 0x00] @ [12], // Page 6
-            [0xB7, 0x00, 0x00] @ [12], // Page 7
-            [0xAF] @ [0]               // Display ON 
-        ]
-    };
+    // Create a new display driver instance
+    // You can set the I2C address here (e.g., 0x3D) if it's different
+    let mut display = Sh1107gBuilder::new(i2c).build();
 
+    // Initialize the display with a set of commands
+    // The init() method is provided in lib.rs
+    // based on the SH1107G_INIT_CMDS array in cmds.rs
+    display.init().unwrap();
     arduino_hal::delay_ms(1000);
+    display.clear_buffer();
 
-    let _ = pruning_sort!(
-        explorer_instance.0,
-        &mut i2c,
-        &mut serial,
-        PREFIX,
-        23,
-        256,
-        22
-    );
+    // Draw a rectangle
+    Rectangle::new(Point::new(10, 10), Size::new(100, 50))
+        .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+        .draw(&mut display)
+        .unwrap();
+    display.clear_buffer();
+    // Draw a circle
+    Circle::new(Point::new(64, 90), 20)
+        .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
+        .draw(&mut display)
+        .unwrap();
+    display.clear_buffer();
+    // Draw some text
+    let character_style = MonoTextStyle::new(&FONT_8X13_BOLD, BinaryColor::On);
+    Text::with_baseline(
+        "Hello, Rust!",
+        Point::new(15, 30),
+        character_style,
+        Baseline::Top,
+    )
+    .draw(&mut display)
+    .unwrap();
 
+    // Flush the buffer to the display to show the changes
+    display.flush().unwrap();
+    
+    // The loop is necessary to prevent the program from ending
+    // on embedded systems.
     loop {}
 }

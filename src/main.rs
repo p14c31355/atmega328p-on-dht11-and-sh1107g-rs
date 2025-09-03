@@ -30,7 +30,7 @@ fn main() -> ! {
     arduino_hal::delay_ms(1000);
 
     // Initialize I2C bus
-    let i2c = arduino_hal::I2c::new(
+    let mut i2c = arduino_hal::I2c::new(
         dp.TWI,
         pins.a4.into_pull_up_input(), // SDA
         pins.a5.into_pull_up_input(), // SCL
@@ -39,7 +39,7 @@ fn main() -> ! {
 
     // Create a new display driver instance
     // You can set the I2C address here (e.g., 0x3D) if it's different
-    let mut display = Sh1107gBuilder::new(i2c).build();
+    let mut display = Sh1107gBuilder::new(&mut i2c).build();
 
     // Initialize the display with a set of commands
     // The init() method is provided in lib.rs

@@ -31,7 +31,7 @@ dependencies = [
  "arduino-hal",
  "dvcdbg",
  "embedded-graphics",
- "embedded-hal 0.2.7",
+ "embedded-hal 1.0.0",
  "embedded-io",
  "heapless",
  "nb 1.1.0",
